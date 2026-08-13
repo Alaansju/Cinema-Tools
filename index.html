@@ -1,0 +1,2958 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scenemates — Story Editor</title>
+<style>
+/* ── Reset & Variables ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0e0f14;
+  --bg2:       #16181f;
+  --bg3:       #1e2028;
+  --border:    #2c2e38;
+  --text:      #e2e4ec;
+  --text2:     #8b8fa8;
+  --text3:     #5a5d73;
+  --accent:    #7b6ef6;
+  --accent2:   #5b4fd4;
+  --danger:    #e05252;
+  --success:   #52c97b;
+  --warning:   #e0a052;
+
+  --c-poissons:  #4db8ff;
+  --c-villageois:#ffb347;
+  --c-fbi:       #b47aff;
+  --c-mixte:     #ff6fa8;
+  --c-casting:   #7a8099;
+
+  --radius:    6px;
+  --panel-w:   420px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f0f1f7; --bg2: #ffffff; --bg3: #e8eaf0;
+    --border: #d0d3e0; --text: #1a1c2a; --text2: #5a5d73; --text3: #9a9db8;
+  }
+}
+[data-theme="light"] {
+  --bg: #f0f1f7; --bg2: #ffffff; --bg3: #e8eaf0;
+  --border: #d0d3e0; --text: #1a1c2a; --text2: #5a5d73; --text3: #9a9db8;
+}
+[data-theme="dark"] {
+  --bg: #0e0f14; --bg2: #16181f; --bg3: #1e2028;
+  --border: #2c2e38; --text: #e2e4ec; --text2: #8b8fa8; --text3: #5a5d73;
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       font-size: 14px; background: var(--bg); color: var(--text);
+       display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ── Header ────────────────────────────────────────────────────── */
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+header h1 { font-size: 15px; font-weight: 600; letter-spacing: .03em; }
+header h1 span { color: var(--accent); }
+.unsaved-dot { width: 8px; height: 8px; border-radius: 50%;
+  background: var(--warning); display: none; flex-shrink: 0; }
+.unsaved-dot.visible { display: block; }
+.header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.btn-save {
+  padding: 5px 12px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 12px; cursor: pointer;
+  transition: all .15s; display: none;
+}
+.btn-save:hover { border-color: var(--accent); color: var(--accent); }
+.btn-save.visible { display: flex; align-items: center; gap: 5px; }
+.unsaved-label { font-size: 12px; color: var(--warning); display: none; }
+.unsaved-label.visible { display: block; }
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+button { cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 6px 12px; font-size: 13px; font-family: inherit; transition: all .15s; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+.btn-ghost { background: transparent; color: var(--text2); }
+.btn-ghost:hover { background: var(--bg3); color: var(--text); }
+.btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+.btn-sm { padding: 3px 8px; font-size: 12px; }
+.btn-icon { padding: 4px 8px; font-size: 16px; background: transparent;
+  border-color: transparent; color: var(--text2); }
+.btn-icon:hover { color: var(--text); background: var(--bg3); }
+
+/* ── Nav tabs ──────────────────────────────────────────────────── */
+nav {
+  display: flex; gap: 2px; padding: 0 12px;
+  background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.tab-btn {
+  padding: 10px 16px; background: transparent; border: none; border-bottom: 2px solid transparent;
+  color: var(--text2); font-size: 13px; font-weight: 500; border-radius: 0;
+  cursor: pointer; transition: all .15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Layout ────────────────────────────────────────────────────── */
+.workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
+.tab-content { display: none; flex: 1; overflow: hidden; }
+.tab-content.active { display: flex; flex-direction: column; position: relative; }
+
+/* ── Filters bar ───────────────────────────────────────────────── */
+.filters {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--bg2);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.filter-chip {
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border); background: transparent; color: var(--text2);
+  cursor: pointer; transition: all .15s;
+}
+.filter-chip:hover { border-color: var(--text3); color: var(--text); }
+.filter-chip.active { color: #fff; border-color: transparent; }
+.filter-chip.group-poissons.active  { background: var(--c-poissons); }
+.filter-chip.group-villageois.active{ background: var(--c-villageois); color: #111; }
+.filter-chip.group-fbi.active       { background: var(--c-fbi); }
+.filter-chip.group-mixte.active     { background: var(--c-mixte); }
+.filter-chip.group-casting.active   { background: var(--c-casting); }
+.filter-chip.filter-active.active   { background: var(--accent); }
+.filter-sep { width: 1px; height: 18px; background: var(--border); }
+.search-input {
+  padding: 4px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 13px; width: 180px;
+}
+.search-input:focus { outline: none; border-color: var(--accent); }
+.filter-count { font-size: 12px; color: var(--text3); margin-left: auto; }
+
+/* ── Table ─────────────────────────────────────────────────────── */
+.table-wrap { flex: 1; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  position: sticky; top: 0; background: var(--bg2); z-index: 1;
+  padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--text3);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+tbody tr:hover { background: var(--bg3); }
+tbody tr.selected { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+td { padding: 8px 12px; vertical-align: top; }
+.td-num { font-family: monospace; font-size: 12px; color: var(--text2); white-space: nowrap; }
+.td-title { font-weight: 500; }
+.td-title small { display: block; font-size: 11px; color: var(--text3); font-weight: 400;
+  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Badges ────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block; padding: 2px 7px; border-radius: 10px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.badge-poissons  { background: color-mix(in srgb,var(--c-poissons) 18%,transparent);  color:var(--c-poissons); }
+.badge-villageois{ background: color-mix(in srgb,var(--c-villageois) 18%,transparent); color:var(--c-villageois); }
+.badge-fbi       { background: color-mix(in srgb,var(--c-fbi) 18%,transparent);       color:var(--c-fbi); }
+.badge-mixte     { background: color-mix(in srgb,var(--c-mixte) 18%,transparent);     color:var(--c-mixte); }
+.badge-casting   { background: color-mix(in srgb,var(--c-casting) 18%,transparent);   color:var(--c-casting); }
+.badge-act  { background: var(--bg3); color: var(--text2); }
+.badge-type { background: var(--bg3); color: var(--text2); }
+.badge-bonus { background: color-mix(in srgb,var(--warning) 18%,transparent); color:var(--warning); }
+.badge-climax{ background: color-mix(in srgb,var(--danger) 18%,transparent); color:var(--danger); }
+.badge-final { background: color-mix(in srgb,var(--success) 18%,transparent); color:var(--success); }
+
+.flag-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.players-label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+
+/* ── Detail panel ──────────────────────────────────────────────── */
+.detail-panel {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: var(--panel-w); background: var(--bg2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .22s ease;
+  z-index: 10;
+}
+.detail-panel.open { transform: translateX(0); }
+.detail-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.detail-header h3 { font-size: 14px; flex: 1; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.detail-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.detail-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; }
+
+.field-group { display: flex; flex-direction: column; gap: 4px; }
+.field-label { font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text3); }
+.field-value { font-size: 13px; color: var(--text); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.edit-input, .edit-textarea, .edit-select {
+  width: 100%; padding: 6px 8px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--bg3); color: var(--text);
+  font-size: 13px; font-family: inherit; transition: border-color .15s;
+}
+.edit-input:focus, .edit-textarea:focus, .edit-select:focus {
+  outline: none; border-color: var(--accent);
+}
+.edit-textarea { resize: vertical; min-height: 70px; }
+.edit-checkbox-row { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.edit-checkbox-row input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+.flags-edit { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.tag-input-wrap { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3);
+  cursor: text; min-height: 34px; align-items: center; position: relative; }
+.tag-input-wrap:focus-within { border-color: var(--accent); }
+/* Suggestions dropdown */
+.tag-suggestions {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200;
+  background: var(--bg2); border: 1px solid var(--accent); border-radius: var(--radius);
+  max-height: 220px; overflow-y: auto; display: none;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+.tag-sugg-item {
+  padding: 7px 10px; cursor: pointer; font-size: 12px; color: var(--text);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+}
+.tag-sugg-item:last-child { border-bottom: none; }
+.tag-sugg-item:hover { background: var(--bg3); }
+.tag-sugg-item .sugg-id { font-size: 10px; font-family: monospace; color: var(--text3); flex-shrink: 0; }
+.tag-sugg-item .sugg-name { flex: 1; font-weight: 500; }
+.tag-sugg-item .sugg-avatar { width: 20px; height: 20px; border-radius: 50%; overflow: hidden;
+  flex-shrink: 0; background: var(--bg3); display: flex; align-items: center; justify-content: center;
+  font-size: 10px; }
+.tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px;
+  border-radius: 4px; background: color-mix(in srgb,var(--accent) 18%,transparent);
+  color: var(--accent); font-size: 11px; font-weight: 500; }
+.tag-remove { cursor: pointer; opacity: .6; }
+.tag-remove:hover { opacity: 1; }
+.tag-input { flex: 1; min-width: 80px; border: none; background: transparent;
+  color: var(--text); font-size: 12px; outline: none; }
+
+/* ── Graph view ────────────────────────────────────────────────── */
+.graph-container { flex: 1; position: relative; overflow: hidden; }
+#graph-svg { width: 100%; height: 100%; cursor: grab; }
+#graph-svg:active { cursor: grabbing; }
+.graph-node { cursor: pointer; }
+.graph-node circle { stroke-width: 2; transition: r .15s; }
+.graph-node:hover circle { r: 14; }
+.graph-node text { pointer-events: none; font-size: 9px; fill: var(--text); }
+.graph-node .node-label { font-size: 9px; fill: var(--text); }
+/* Dev status badges */
+.dev-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px; }
+.dev-badge.todo       { background: color-mix(in srgb,var(--text3) 15%,transparent);  color: var(--text3); }
+.dev-badge.squelette  { background: color-mix(in srgb,#a78bfa 18%,transparent);       color: #a78bfa; }
+.dev-badge.in_progress{ background: color-mix(in srgb,var(--warning) 18%,transparent); color: var(--warning); }
+.dev-badge.a_tester   { background: color-mix(in srgb,#38bdf8 18%,transparent);       color: #38bdf8; }
+.dev-badge.done       { background: color-mix(in srgb,var(--success) 18%,transparent); color: var(--success); }
+/* Main role bold */
+.role-main { font-weight: 700; }
+/* Character avatar */
+.char-avatar {
+  width: 72px; height: 72px; border-radius: 50%; flex-shrink: 0;
+  background: var(--bg3); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; color: var(--text3); overflow: hidden; cursor: pointer;
+}
+.char-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.char-avatar-sm {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  background: var(--bg3); border: 1px solid var(--border);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--text3); overflow: hidden; vertical-align: middle;
+}
+.char-avatar-sm img { width: 100%; height: 100%; object-fit: cover; }
+.tl-scene-card .sc-role { display: inline-flex; align-items: center; gap: 3px; }
+.graph-link { stroke: var(--border); stroke-width: 1.5; fill: none; marker-end: url(#arrow); cursor: default; }
+.graph-link.main-path { stroke: var(--accent); stroke-width: 2; opacity: .7; }
+.graph-link.deletable { stroke: var(--danger); stroke-width: 3; cursor: pointer; opacity: .85; }
+.graph-node.link-source circle { stroke: var(--success) !important; stroke-width: 3 !important; }
+.graph-node.link-candidate circle { stroke: var(--warning) !important; stroke-width: 2.5 !important; }
+#btn-edit-links.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.graph-controls {
+  position: absolute; bottom: 16px; right: 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.graph-legend {
+  position: absolute; bottom: 16px; left: 16px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Characters/Abilities tables ───────────────────────────────── */
+.linked-tags { display: flex; flex-wrap: wrap; gap: 3px; }
+.linked-tag {
+  padding: 1px 6px; border-radius: 4px; font-size: 11px;
+  background: var(--bg3); color: var(--text2); border: 1px solid var(--border);
+  cursor: pointer; transition: all .12s;
+}
+.linked-tag:hover { border-color: var(--accent); color: var(--accent); }
+
+.variants-grid { display: flex; flex-direction: column; gap: 2px; max-height: 60px; overflow: hidden; }
+.variant-row { font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.variant-row strong { color: var(--text); }
+
+/* ── Empty state ───────────────────────────────────────────────── */
+.empty-state { display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 8px; flex: 1; color: var(--text3); }
+.empty-state p { font-size: 14px; }
+
+/* ── GitHub status dot ─────────────────────────────────────────── */
+.gh-status { width:8px; height:8px; border-radius:50%; background:var(--border); flex-shrink:0; }
+.gh-status.ok   { background:var(--success); }
+.gh-status.err  { background:var(--danger); }
+.gh-status.busy { background:var(--warning); animation:pulse .8s infinite alternate; }
+@keyframes pulse { from{opacity:1} to{opacity:.3} }
+
+/* ── Theme toggle ──────────────────────────────────────────────── */
+.theme-toggle { font-size: 16px; padding: 4px 8px; border-radius: var(--radius);
+  background: transparent; border: 1px solid var(--border); cursor: pointer;
+  color: var(--text2); transition: all .15s; line-height: 1; }
+.theme-toggle:hover { background: var(--bg3); color: var(--text); }
+
+/* ── Graph popup ───────────────────────────────────────────────── */
+#graph-popup {
+  position: absolute; display: none; z-index: 20;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px; min-width: 220px; max-width: 300px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+#graph-popup.visible { display: block; }
+#graph-popup.edit-mode { width: 360px; max-height: 85vh; overflow-y: auto; }
+.gp-roles-list { display: flex; flex-wrap: wrap; gap: 4px; }
+#graph-popup h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+#graph-popup p  { font-size: 12px; color: var(--text2); line-height: 1.5; margin-bottom: 8px; }
+#graph-popup .popup-footer { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.gp-field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.gp-field label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); }
+.gp-input { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-family: inherit; font-size: 12px; padding: 4px 7px; width: 100%; box-sizing: border-box; }
+.gp-input:focus { outline: none; border-color: var(--accent); }
+textarea.gp-input { resize: vertical; min-height: 44px; }
+.gp-check { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; color: var(--text2); }
+.popup-close { position: absolute; top: 6px; right: 8px; background: none; border: none;
+  font-size: 14px; color: var(--text3); cursor: pointer; padding: 0; }
+.popup-close:hover { color: var(--text); }
+
+/* ── Scenario / Timeline ───────────────────────────────────────── */
+.scenario-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+.scenario-topbar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  background: var(--bg2); border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.scenario-topbar label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--text3); flex-shrink: 0; }
+.scenario-topbar textarea {
+  flex: 1; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 13px; font-family: inherit;
+  resize: none; height: 46px; line-height: 1.5;
+}
+.scenario-topbar textarea:focus { outline: none; border-color: var(--accent); }
+.scenario-act-synopses { display: flex; gap: 8px; flex: 2; }
+.act-synopsis-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.act-synopsis-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.act-synopsis-label.act1-label { color: var(--c-poissons); }
+.act-synopsis-label.act2-label { color: var(--c-villageois); }
+.act-synopsis-label.act3-label { color: var(--c-fbi); }
+.act-synopsis-field textarea { flex: 1; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 12px; font-family: inherit;
+  resize: none; height: 46px; line-height: 1.5; }
+.act-synopsis-field textarea:focus { outline: none; border-color: var(--accent); }
+
+/* Outer scroll container */
+.tl-scroll { flex: 1; overflow: auto; background: var(--bg); cursor: grab; }
+.tl-scroll.panning { cursor: grabbing; user-select: none; }
+
+/* All rows stacked vertically (acts headers + track rows) */
+.tl-rows { display: inline-flex; flex-direction: column; min-width: 100%; user-select: none; }
+
+/* Sticky act headers row */
+.tl-act-headers {
+  display: flex; position: sticky; top: 0; z-index: 6;
+  background: var(--bg2); border-bottom: 2px solid var(--border);
+}
+.tl-label-spacer {
+  flex-shrink: 0; width: 120px; border-right: 1px solid var(--border);
+  background: var(--bg2);
+}
+.tl-act-hdr-inner { flex: 1; position: relative; }
+.tl-act-hdr-cell {
+  position: absolute; top: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+}
+.tl-act-hdr-cell.act1 { color: var(--c-poissons); background: color-mix(in srgb,var(--c-poissons) 7%,transparent); }
+.tl-act-hdr-cell.act2 { color: var(--c-villageois); background: color-mix(in srgb,var(--c-villageois) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-villageois) 30%,transparent); }
+.tl-act-hdr-cell.act3 { color: var(--c-fbi); background: color-mix(in srgb,var(--c-fbi) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-fbi) 30%,transparent); }
+
+/* Track rows */
+.tl-track-row { display: flex; border-bottom: 1px solid var(--border); }
+.tl-track-row.track-notes-row .tl-track-body { height: 170px; }
+
+.tl-track-label {
+  flex-shrink: 0; width: 120px; padding: 0 10px;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  position: sticky; left: 0; z-index: 4;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 3px;
+}
+.tl-track-name {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+}
+.tl-track-label.track-casting    .tl-track-name { color: var(--c-casting); }
+.tl-track-label.track-poissons   .tl-track-name { color: var(--c-poissons); }
+.tl-track-label.track-villageois .tl-track-name { color: var(--c-villageois); }
+.tl-track-label.track-fbi        .tl-track-name { color: var(--c-fbi); }
+.tl-track-label.track-mixte      .tl-track-name { color: var(--c-mixte); }
+.tl-track-label.track-notes      .tl-track-name { color: var(--accent); }
+.tl-track-count { font-size: 10px; color: var(--text3); }
+
+/* Track body: the lane where cards sit */
+.tl-track-body { position: relative; height: 190px; }
+
+/* The horizontal lane line */
+.tl-track-body::before {
+  content: ''; position: absolute; top: 50%; left: 0; right: 0;
+  height: 2px; background: var(--border); z-index: 0; pointer-events: none;
+}
+
+/* Act zone backgrounds */
+.tl-act-zone {
+  position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0;
+}
+.tl-act-zone.act1 { background: color-mix(in srgb,var(--c-poissons) 4%,transparent); }
+.tl-act-zone.act2 { background: color-mix(in srgb,var(--c-villageois) 4%,transparent);
+  border-left: 2px solid color-mix(in srgb,var(--c-villageois) 20%,transparent); }
+.tl-act-zone.act3 { background: color-mix(in srgb,var(--c-fbi) 4%,transparent);
+  border-left: 2px solid color-mix(in srgb,var(--c-fbi) 20%,transparent); }
+
+/* Connector lines between cards */
+.tl-connector {
+  position: absolute; top: 50%; transform: translateY(-1px);
+  height: 2px; z-index: 1; pointer-events: none;
+}
+
+/* Scene cards */
+.tl-scene-card {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 182px; border-radius: var(--radius);
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 8px 10px; cursor: grab; z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18); transition: box-shadow .15s, border-color .15s;
+}
+.tl-scene-card:hover { box-shadow: 0 5px 16px rgba(0,0,0,.28); border-color: var(--accent); }
+.tl-scene-card.dragging { cursor: grabbing; z-index: 10; opacity: 0.88; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.tl-scene-card .sc-num   { font-size: 10px; font-family: monospace; color: var(--text3); margin-bottom: 2px; }
+.tl-scene-card .sc-title { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 3px; }
+.tl-scene-card .sc-flags { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 3px; }
+.tl-scene-card .sc-flag  { font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 700; text-transform: uppercase; }
+.tl-scene-card .sc-flag.climax { background: color-mix(in srgb,var(--danger) 18%,transparent); color: var(--danger); }
+.tl-scene-card .sc-flag.final  { background: color-mix(in srgb,var(--success) 18%,transparent); color: var(--success); }
+.tl-scene-card .sc-flag.bonus  { background: color-mix(in srgb,var(--warning) 18%,transparent); color: var(--warning); }
+.tl-scene-card.is-climax { box-shadow: 0 0 0 2px var(--danger), 0 3px 10px rgba(0,0,0,.2); }
+.tl-scene-card.is-final  { box-shadow: 0 0 0 2px var(--success), 0 3px 10px rgba(0,0,0,.2); }
+.tl-scene-card .sc-desc  { font-size: 10px; color: var(--text2); line-height: 1.45; margin-top: 4px; }
+.tl-scene-card .sc-roles { font-size: 10px; color: var(--text3); margin-top: 4px;
+  display: flex; flex-wrap: wrap; gap: 3px; }
+.tl-scene-card .sc-role  { padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 600;
+  background: var(--bg3); border: 1px solid var(--border); }
+.tl-scene-card .sc-desnotes { font-size: 9px; color: var(--text3); font-style: italic; margin-top: 4px; line-height: 1.4; }
+
+/* Note cards on timeline */
+.tl-note-card {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 170px; border-radius: var(--radius); z-index: 2; cursor: grab;
+  border: 1.5px dashed var(--accent);
+  background: color-mix(in srgb,var(--accent) 9%,transparent);
+  padding: 6px 8px;
+}
+.tl-note-card.dragging { cursor: grabbing; z-index: 10; opacity: 0.88; }
+.tl-note-card textarea {
+  width: 100%; border: none; background: transparent; color: var(--text);
+  font-size: 11px; font-family: inherit; resize: none; outline: none;
+  line-height: 1.5; min-height: 52px; display: block;
+}
+.tl-note-del {
+  position: absolute; top: 3px; right: 4px; background: none; border: none;
+  color: var(--text3); font-size: 11px; padding: 0; cursor: pointer; line-height: 1;
+}
+.tl-note-del:hover { color: var(--danger); }
+
+/* Hotspot "+" to add a note */
+.tl-add-hotspot {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 28px; height: 28px; border-radius: 50%; z-index: 2;
+  background: var(--bg3); border: 1.5px dashed var(--border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; color: var(--text3);
+  transition: all .15s; opacity: 0;
+}
+.tl-track-body:hover .tl-add-hotspot { opacity: 1; }
+.tl-add-hotspot:hover { opacity: 1 !important; border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb,var(--accent) 10%,transparent); transform: translateY(-50%) scale(1.15); }
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── Toast ─────────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 16px; font-size: 13px; z-index: 100; opacity: 0; transition: all .25s;
+  pointer-events: none; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--success); color: var(--success); }
+#toast.error   { border-color: var(--danger);  color: var(--danger);  }
+
+/* ── Notes Tab ────────────────────────────────────────────────── */
+.notes-layout { display:flex; flex-direction:column; gap:0; height:100%; overflow:hidden; }
+.notes-toolbar { display:flex; align-items:center; gap:6px; padding:8px 12px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+.notes-toolbar-sep { width:1px; height:18px; background:var(--border); margin:0 2px; }
+.notes-toolbar-btn { background:none; border:1px solid transparent; border-radius:4px; color:var(--text2); cursor:pointer; font-size:13px; padding:3px 8px; line-height:1.4; transition:.15s; }
+.notes-toolbar-btn:hover { background:var(--bg3); color:var(--text); border-color:var(--border); }
+.notes-toolbar-btn.active { background:var(--accent); color:#fff; border-color:transparent; }
+.notes-wcount { margin-left:auto; font-size:11px; color:var(--text3); white-space:nowrap; }
+.notes-sections { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px; }
+.notes-section { background:var(--bg2); border:1px solid var(--border); border-radius:8px; transition:.15s; }
+.notes-section.collapsed .notes-section-body { display:none; }
+.notes-section-header { display:flex; align-items:center; gap:6px; padding:8px 12px; cursor:pointer; user-select:none; }
+.notes-section-header:hover { background:var(--bg3); }
+.notes-section-title-input { background:none; border:none; color:var(--text); font-size:13px; font-weight:600; flex:1; outline:none; cursor:pointer; }
+.notes-section-title-input:focus { cursor:text; }
+.notes-section-collapse-btn { background:none; border:none; color:var(--text3); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:3px; transition:.15s; }
+.notes-section-collapse-btn:hover { color:var(--text); }
+.notes-section-actions { display:flex; gap:4px; }
+.notes-section-action { background:none; border:none; color:var(--text3); cursor:pointer; font-size:12px; padding:2px 6px; border-radius:3px; transition:.15s; opacity:0; }
+.notes-section-header:hover .notes-section-action { opacity:1; }
+.notes-section-action:hover { color:var(--text); background:var(--bg3); }
+.notes-section-action.danger:hover { color:var(--danger); }
+.notes-section-body { display:flex; position:relative; }
+.notes-editor { width:100%; background:transparent; color:var(--text); font-size:14px; line-height:1.8; padding:16px; outline:none; }
+.notes-editor:empty::before { content:attr(data-placeholder); color:var(--text3); pointer-events:none; display:block; }
+.notes-editor h1 { font-size:20px; font-weight:700; margin:0 0 8px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+.notes-editor h2 { font-size:16px; font-weight:600; margin:12px 0 5px; color:var(--text); }
+.notes-editor h3 { font-size:14px; font-weight:600; margin:8px 0 4px; color:var(--text2); }
+.notes-editor strong { font-weight:700; }
+.notes-editor em { font-style:italic; color:var(--text2); }
+.notes-editor code { background:var(--bg3); border-radius:3px; padding:1px 5px; font-family:monospace; font-size:12px; color:var(--c-poissons); }
+.notes-editor blockquote { border-left:3px solid var(--accent); padding-left:10px; color:var(--text2); margin:6px 0; }
+.notes-editor ul,.notes-editor ol { padding-left:22px; margin:4px 0; }
+.notes-editor li { margin:2px 0; }
+.notes-editor hr { border:none; border-top:1px solid var(--border); margin:10px 0; }
+.notes-editor a { color:var(--accent); }
+.notes-add-section { display:flex; }
+.notes-add-btn { background:none; border:1px dashed var(--border); color:var(--text3); border-radius:6px; padding:8px 24px; cursor:pointer; font-size:12px; width:100%; transition:.15s; }
+.notes-add-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(123,110,246,.06); }
+.focus-overlay { display:none; position:fixed; inset:0; background:var(--bg); z-index:500; flex-direction:column; }
+.focus-overlay.open { display:flex; }
+.focus-header { display:flex; align-items:center; gap:10px; padding:12px 20px; border-bottom:1px solid var(--border); }
+.focus-title { font-size:14px; font-weight:600; color:var(--text); flex:1; }
+.focus-close-btn { background:none; border:1px solid var(--border); color:var(--text2); border-radius:5px; padding:4px 12px; cursor:pointer; font-size:12px; }
+.focus-close-btn:hover { color:var(--text); border-color:var(--text2); }
+.focus-editor { flex:1; background:transparent; color:var(--text); font-size:15px; line-height:1.9; padding:32px max(32px, calc(50% - 380px)); outline:none; overflow-y:auto; }
+.focus-editor:empty::before { content:attr(data-placeholder); color:var(--text3); pointer-events:none; display:block; }
+.focus-editor h1 { font-size:22px; font-weight:700; margin:0 0 10px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.focus-editor h2 { font-size:18px; font-weight:600; margin:14px 0 6px; }
+.focus-editor h3 { font-size:15px; font-weight:600; margin:10px 0 4px; color:var(--text2); }
+.focus-editor strong { font-weight:700; }
+.focus-editor em { font-style:italic; color:var(--text2); }
+.focus-editor code { background:var(--bg3); border-radius:3px; padding:1px 6px; font-family:monospace; font-size:13px; color:var(--c-poissons); }
+.focus-editor blockquote { border-left:3px solid var(--accent); padding-left:12px; color:var(--text2); margin:8px 0; }
+.focus-editor ul,.focus-editor ol { padding-left:24px; margin:6px 0; }
+.focus-editor li { margin:3px 0; }
+.focus-editor hr { border:none; border-top:1px solid var(--border); margin:12px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Scenemates <span>Story Editor</span></h1>
+  <div class="unsaved-dot" id="unsaved-dot"></div>
+  <div class="header-right">
+    <span class="unsaved-label" id="unsaved-label">Modifications non sauvegardées</span>
+    <button class="btn-save" id="save-btn" onclick="saveToStorage()" title="Sauvegarder (Ctrl+S)">💾 Sauvegarder</button>
+    <div class="gh-status" id="gh-status" title="Statut GitHub"></div>
+    <button class="btn-ghost btn-sm" id="gh-push-btn" onclick="ghPush()" title="Pousser vers GitHub" style="display:none">↑ GitHub</button>
+    <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Basculer dark/light mode">🌙</button>
+    <button class="btn-ghost btn-sm" onclick="showGhSettings()">⚙ GitHub</button>
+    <input type="file" id="file-input" accept=".json" style="display:none">
+    <button class="btn-ghost" onclick="document.getElementById('file-input').click()">⬆ JSON</button>
+    <button class="btn-primary" onclick="exportJSON()">⬇ JSON</button>
+  </div>
+</header>
+
+<nav>
+  <button class="tab-btn active" data-tab="scenes">Scènes</button>
+  <button class="tab-btn" data-tab="scenario">Scénario</button>
+  <button class="tab-btn" data-tab="graph">Graphe</button>
+  <button class="tab-btn" data-tab="characters">Personnages</button>
+  <button class="tab-btn" data-tab="abilities">Capacités</button>
+  <button class="tab-btn" data-tab="notes">📝 Notes</button>
+</nav>
+
+<div class="workspace">
+
+  <!-- ── TAB SCÈNES ─────────────────────────────────────────── -->
+  <div class="tab-content active" id="tab-scenes">
+    <div class="filters" id="scenes-filters">
+      <input class="search-input" id="scene-search" placeholder="Rechercher…" oninput="renderScenesTable()">
+      <div class="filter-sep"></div>
+      <button class="filter-chip group-casting active" data-filter="group" data-value="CASTING" onclick="toggleFilter(this)">Casting</button>
+      <button class="filter-chip group-poissons active" data-filter="group" data-value="POISSONS" onclick="toggleFilter(this)">Poissons</button>
+      <button class="filter-chip group-villageois active" data-filter="group" data-value="VILLAGEOIS" onclick="toggleFilter(this)">Villageois</button>
+      <button class="filter-chip group-fbi active" data-filter="group" data-value="FBI" onclick="toggleFilter(this)">FBI</button>
+      <button class="filter-chip group-mixte active" data-filter="group" data-value="MIXTE" onclick="toggleFilter(this)">Mixte</button>
+      <div class="filter-sep"></div>
+      <button class="filter-chip filter-active" data-filter="branch" data-value="main" onclick="toggleFilter(this)">Main</button>
+      <button class="filter-chip filter-active" data-filter="branch" data-value="bonus" onclick="toggleFilter(this)">Bonus</button>
+      <div class="filter-sep"></div>
+      <button class="filter-chip filter-active" data-filter="act" data-value="1" onclick="toggleFilter(this)">Acte 1</button>
+      <button class="filter-chip filter-active" data-filter="act" data-value="2" onclick="toggleFilter(this)">Acte 2</button>
+      <button class="filter-chip filter-active" data-filter="act" data-value="3" onclick="toggleFilter(this)">Acte 3</button>
+      <span class="filter-count" id="scenes-count"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="scenes-table">
+        <thead>
+          <tr>
+            <th>Num</th>
+            <th>Titre</th>
+            <th>Groupe</th>
+            <th>Acte</th>
+            <th>Joueurs</th>
+            <th>Type</th>
+            <th>Flags</th>
+            <th>Conditions</th>
+          </tr>
+        </thead>
+        <tbody id="scenes-tbody"></tbody>
+      </table>
+      <div class="detail-panel" id="scene-panel">
+        <div class="detail-header">
+          <h3 id="panel-scene-title">Scène</h3>
+          <button class="btn-icon" onclick="closePanel('scene-panel')">✕</button>
+        </div>
+        <div class="detail-body" id="scene-panel-body"></div>
+        <div class="detail-footer">
+          <button class="btn-primary" id="scene-save-btn" onclick="saveScene()">Sauvegarder</button>
+          <button class="btn-ghost" onclick="closePanel('scene-panel')">Annuler</button>
+          <button class="btn-danger btn-sm" style="margin-left:auto" onclick="deleteScene()">Supprimer</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--bg2); flex-shrink:0">
+      <button class="btn-ghost btn-sm" onclick="addScene()">+ Nouvelle scène</button>
+    </div>
+  </div>
+
+  <!-- ── TAB GRAPHE ─────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-graph">
+    <div class="filters">
+      <span style="font-size:12px;color:var(--text3)">Scroll = zoom · Drag = déplacer · Clic = info</span>
+      <div class="filter-sep"></div>
+      <button id="btn-edit-links" class="filter-chip" onclick="toggleLinkEditMode()" title="Modifier les liens : clic nœud A → nœud B pour créer un lien, clic sur lien pour supprimer">✏ Modifier les liens</button>
+      <span id="link-edit-hint" style="font-size:11px;color:var(--text3);display:none">Clic nœud source → nœud cible · Clic lien = supprimer</span>
+    </div>
+    <div class="graph-container">
+      <svg id="graph-svg">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="var(--text3)"></path>
+          </marker>
+        </defs>
+        <g id="graph-root"></g>
+      </svg>
+      <!-- Graph popup lives here so absolute positioning is relative to the container -->
+      <div id="graph-popup">
+        <button class="popup-close" onclick="closeGraphPopup()">✕</button>
+
+        <!-- VIEW MODE -->
+        <div id="gp-view">
+          <div id="gp-num" style="font-size:10px;font-family:monospace;color:var(--text3);margin-bottom:4px"></div>
+          <h4 id="gp-title"></h4>
+          <div id="gp-badges" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px"></div>
+          <p id="gp-desc"></p>
+          <div id="gp-notes" style="font-size:11px;color:var(--text3);font-style:italic;margin-bottom:6px"></div>
+          <div class="popup-footer">
+            <button class="btn-primary btn-sm" onclick="popupToggleEdit()">✏ Modifier</button>
+            <button class="btn-ghost btn-sm" onclick="popupGoToScenario()">Scénario</button>
+            <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="popupGoToScene()">Détails →</button>
+          </div>
+        </div>
+
+        <!-- EDIT MODE -->
+        <div id="gp-edit" style="display:none">
+          <div style="font-size:10px;font-family:monospace;color:var(--text3);margin-bottom:6px" id="gp-edit-num"></div>
+          <div class="gp-field"><label>Titre</label><input id="gp-e-title" class="gp-input"></div>
+          <div class="gp-field"><label>Description</label><textarea id="gp-e-desc" class="gp-input" rows="3"></textarea></div>
+          <div class="gp-field"><label>Notes game design</label><textarea id="gp-e-notes" class="gp-input" rows="3"></textarea></div>
+          <div class="gp-field"><label>Rôles présents</label><div id="gp-e-roles" class="gp-roles-list"></div></div>
+          <div class="popup-footer" style="margin-top:8px">
+            <button class="btn-ghost btn-sm" onclick="popupToggleEdit()">← Info</button>
+            <button class="btn-primary btn-sm" onclick="saveGraphEdit()">Sauvegarder</button>
+            <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="popupGoToScene()">Détails →</button>
+          </div>
+        </div>
+      </div>
+      <div class="graph-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-casting)"></div>Casting</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-poissons)"></div>Poissons</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-villageois)"></div>Villageois</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-fbi)"></div>FBI</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-mixte)"></div>Mixte</div>
+      </div>
+      <div class="graph-controls">
+        <button class="btn-ghost btn-sm" onclick="graphZoom(1.25)">+</button>
+        <button class="btn-ghost btn-sm" onclick="graphZoom(0.8)">−</button>
+        <button class="btn-ghost btn-sm" onclick="graphReset()">⌂</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB PERSONNAGES ────────────────────────────────────── -->
+  <div class="tab-content" id="tab-characters">
+    <div class="filters">
+      <input class="search-input" id="char-search" placeholder="Rechercher…" oninput="renderCharactersTable()">
+      <div class="filter-sep"></div>
+      <button class="filter-chip group-poissons active" data-filter="cgroup" data-value="POISSONS" onclick="toggleFilter(this)">Poissons</button>
+      <button class="filter-chip group-villageois active" data-filter="cgroup" data-value="VILLAGEOIS" onclick="toggleFilter(this)">Villageois</button>
+      <button class="filter-chip group-fbi active" data-filter="cgroup" data-value="FBI" onclick="toggleFilter(this)">FBI</button>
+      <span class="filter-count" id="chars-count"></span>
+    </div>
+    <div class="table-wrap" >
+      <table id="chars-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Acteur</th>
+            <th>Groupe</th>
+            <th>Rôle</th>
+            <th>Capacités</th>
+            <th>Scènes jouées</th>
+          </tr>
+        </thead>
+        <tbody id="chars-tbody"></tbody>
+      </table>
+      <div class="detail-panel" id="char-panel">
+        <div class="detail-header">
+          <h3 id="panel-char-title">Personnage</h3>
+          <button class="btn-icon" onclick="closePanel('char-panel')">✕</button>
+        </div>
+        <div class="detail-body" id="char-panel-body"></div>
+        <div class="detail-footer">
+          <button class="btn-primary" onclick="saveChar()">Sauvegarder</button>
+          <button class="btn-ghost" onclick="closePanel('char-panel')">Annuler</button>
+          <button class="btn-danger btn-sm" style="margin-left:auto" onclick="deleteChar()">Supprimer</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--bg2); flex-shrink:0">
+      <button class="btn-ghost btn-sm" onclick="addChar()">+ Nouveau personnage</button>
+    </div>
+  </div>
+
+  <!-- ── TAB CAPACITÉS ─────────────────────────────────────── -->
+  <div class="tab-content" id="tab-abilities">
+    <div class="filters">
+      <input class="search-input" id="abil-search" placeholder="Rechercher…" oninput="renderAbilitiesTable()">
+      <div class="filter-sep"></div>
+      <button class="filter-chip group-poissons active" data-filter="agroup" data-value="POISSONS" onclick="toggleFilter(this)">Poissons</button>
+      <button class="filter-chip group-villageois active" data-filter="agroup" data-value="VILLAGEOIS" onclick="toggleFilter(this)">Villageois</button>
+      <button class="filter-chip group-fbi active" data-filter="agroup" data-value="FBI" onclick="toggleFilter(this)">FBI</button>
+      <span class="filter-count" id="abils-count"></span>
+    </div>
+    <div class="table-wrap" >
+      <table>
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Groupe</th>
+            <th>Personnages</th>
+            <th>Scène déblocage</th>
+            <th>Partagée</th>
+            <th>Variantes</th>
+          </tr>
+        </thead>
+        <tbody id="abils-tbody"></tbody>
+      </table>
+      <div class="detail-panel" id="abil-panel">
+        <div class="detail-header">
+          <h3 id="panel-abil-title">Capacité</h3>
+          <button class="btn-icon" onclick="closePanel('abil-panel')">✕</button>
+        </div>
+        <div class="detail-body" id="abil-panel-body"></div>
+        <div class="detail-footer">
+          <button class="btn-primary" onclick="saveAbil()">Sauvegarder</button>
+          <button class="btn-ghost" onclick="closePanel('abil-panel')">Annuler</button>
+          <button class="btn-danger btn-sm" style="margin-left:auto" onclick="deleteAbil()">Supprimer</button>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 16px; border-top:1px solid var(--border); background:var(--bg2); flex-shrink:0">
+      <button class="btn-ghost btn-sm" onclick="addAbil()">+ Nouvelle capacité</button>
+    </div>
+  </div>
+
+  <!-- ── TAB SCÉNARIO ──────────────────────────────────────── -->
+  <div class="tab-content" id="tab-scenario">
+    <div class="scenario-layout">
+      <div class="scenario-topbar">
+        <label>Synopsis</label>
+        <textarea id="scenario-synopsis" placeholder="Vue d'ensemble de l'histoire, thèmes, intentions narratives…" oninput="saveScenarioSynopsis()"></textarea>
+        <div class="scenario-act-synopses">
+          <div class="act-synopsis-field">
+            <label class="act-synopsis-label act1-label">Acte 1</label>
+            <textarea id="scenario-synopsis-act1" placeholder="Acte 1 – Le calme avant la tempête…" oninput="saveActSynopsis(1)"></textarea>
+          </div>
+          <div class="act-synopsis-field">
+            <label class="act-synopsis-label act2-label">Acte 2</label>
+            <textarea id="scenario-synopsis-act2" placeholder="Acte 2 – Des poissons partout…" oninput="saveActSynopsis(2)"></textarea>
+          </div>
+          <div class="act-synopsis-field">
+            <label class="act-synopsis-label act3-label">Acte 3</label>
+            <textarea id="scenario-synopsis-act3" placeholder="Acte 3 – Les étoiles de mer…" oninput="saveActSynopsis(3)"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="tl-scroll">
+        <div class="tl-rows" id="tl-rows"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ── TAB NOTES ──────────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-notes">
+    <div class="notes-layout">
+      <div class="notes-toolbar">
+        <button class="notes-toolbar-btn" title="Titre H1" onclick="notesBlock('h1')"><b>H1</b></button>
+        <button class="notes-toolbar-btn" title="Titre H2" onclick="notesBlock('h2')"><b>H2</b></button>
+        <button class="notes-toolbar-btn" title="Titre H3" onclick="notesBlock('h3')"><b>H3</b></button>
+        <div class="notes-toolbar-sep"></div>
+        <button class="notes-toolbar-btn" title="Gras" onclick="notesFmt('bold')"><b>B</b></button>
+        <button class="notes-toolbar-btn" title="Italique" onclick="notesFmt('italic')"><i>I</i></button>
+        <button class="notes-toolbar-btn" title="Code inline" onclick="notesWrapTag('code')">{ }</button>
+        <div class="notes-toolbar-sep"></div>
+        <button class="notes-toolbar-btn" title="Liste à puces" onclick="notesFmt('insertUnorderedList')">• —</button>
+        <button class="notes-toolbar-btn" title="Liste numérotée" onclick="notesFmt('insertOrderedList')">1.</button>
+        <button class="notes-toolbar-btn" title="Citation" onclick="notesBlock('blockquote')">❝</button>
+        <button class="notes-toolbar-btn" title="Séparateur" onclick="notesFmt('insertHorizontalRule')">—</button>
+        <div class="notes-toolbar-sep"></div>
+        <button class="notes-toolbar-btn" title="Mode focus (plein écran)" onclick="openFocusMode()">⛶ Focus</button>
+        <div class="notes-toolbar-sep"></div>
+        <button class="notes-toolbar-btn" title="Exporter toutes les sections en .md" onclick="exportNotes()">↓ Export .md</button>
+        <span class="notes-wcount" id="notes-wcount">0 mots</span>
+      </div>
+      <div class="notes-sections" id="notes-sections"></div>
+    </div>
+  </div>
+
+</div><!-- workspace -->
+
+<!-- ── Mode Focus ──────────────────────────────────────────────── -->
+<div class="focus-overlay" id="focus-overlay">
+  <div class="focus-header">
+    <span class="focus-title" id="focus-title"></span>
+    <span id="focus-wcount" style="font-size:11px;color:var(--text3);margin-right:8px"></span>
+    <button class="focus-close-btn" onclick="closeFocusMode()">✕ Fermer (Échap)</button>
+  </div>
+  <div class="focus-editor" id="focus-editor" contenteditable="true" data-placeholder="Écris ici…" oninput="onFocusInput()"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ── GitHub Settings Modal ──────────────────────────────────── -->
+<div id="gh-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:24px;width:420px;box-shadow:0 16px 48px rgba(0,0,0,.4)">
+    <h3 style="margin-bottom:16px;font-size:15px">⚙ Configuration GitHub</h3>
+    <div class="field-group">
+      <div class="field-label">Personal Access Token (repo scope)</div>
+      <input id="gh-token-input" type="password" class="edit-input" placeholder="ghp_xxxxxxxxxxxx" style="width:100%">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">
+        Crée un token sur <strong>github.com → Settings → Developer settings → Personal access tokens → Fine-grained</strong> avec accès en lecture/écriture au repo <code>Cinema</code>.
+      </div>
+    </div>
+    <div class="field-group" style="margin-top:12px">
+      <div class="field-label">Fichier de données (chemin dans le repo)</div>
+      <input id="gh-path-input" class="edit-input" value="tools/story_data.json" style="width:100%">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
+      <button class="btn-ghost" onclick="closeGhSettings()">Annuler</button>
+      <button class="btn-ghost" onclick="ghPull()">↓ Charger depuis GitHub</button>
+      <button class="btn-primary" onclick="saveGhSettings()">Enregistrer</button>
+    </div>
+    <div id="gh-modal-status" style="margin-top:10px;font-size:12px;color:var(--text3)"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DEFAULT DATA (embedded from story_data.json)
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_DATA = {"meta":{"version":"1.0.0","title":"Les Poissons qui tombent du ciel","last_modified":"2026-06-26"},"scenes":[{"id":"casting-00","num":"1-C-00","title":"Casting","group":"CASTING","branch":"main","players_min":1,"players_max":4,"type":"intro","unlock_conditions":{},"roles_involved":[],"description":"Tutoriel de sélection des acteurs. Chaque joueur choisit son acteur sans costume ni rôle défini. Introduction aux contrôles de base.","design_notes":"Aucun ennemi, aucun obstacle. Durée estimée : 2-3 min. Sert à familiariser les joueurs avec les déplacements, sauts et interactions avant l'attribution des rôles.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-01","num":"1-P-01","title":"Les eaux calmes","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"AND":["casting-00"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Deux poissons évoluent paisiblement dans la rivière. Quelque chose d'étrange trouble la surface de l'eau.","design_notes":"Introduction à la nage coopérative. Les deux joueurs doivent rester dans le même courant pour avancer. Durée estimée : 5 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-02","num":"1-P-02","title":"Remontée du courant","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["poissons-01"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop"],"description":"Les poissons remontent le courant pour comprendre d'où viennent les perturbations. Un troisième poisson les rejoint.","design_notes":"Obstacles : rochers, filets de pêche. Méca coop : courant qui ralentit si les joueurs se séparent. Durée : 6 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-03","num":"1-P-03","title":"La banc de poissons","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-02"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Les quatre poissons se réunissent. Ensemble, ils explorent une zone inconnue de la rivière.","design_notes":"Premier niveau à 4 poissons. Méca : formation en banc = bonus de vitesse. Durée : 7 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-04","num":"1-P-04","title":"La première chute","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["poissons-03"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Un poisson tombe du ciel et s'écrase dans la rivière. Le groupe doit l'éviter puis comprendre ce qui se passe.","design_notes":"Fin d'acte 1 côté poissons. Objets tombants : danger + puzzles. Le joueur doit guider le banc en sécurité. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-05","num":"1-P-05","title":"Remonter à la surface","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["poissons-04"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Les poissons principaux remontent à la surface pour la première fois. Ils aperçoivent le village et les villageois paniqués.","design_notes":"DÉBLOQUE L'ARC VILLAGEOIS. Transition vers la surface, mécanique d'air limitée. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-06","num":"1-P-06","title":"La bulle de protection","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["poissons-05"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Bulle découvre sa capacité à créer des bulles d'air. Les poissons peuvent désormais explorer hors de l'eau brièvement.","design_notes":"DÉBLOQUE CAPACITÉ BULLE. Nouveau type de plateforme : bulle rebondissante. Chrono hors de l'eau. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-07","num":"1-P-07","title":"Le pont de bois","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-06"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Les poissons tentent de traverser un pont en bois enjambant la rivière. Ils croisent des villageois pour la première fois.","design_notes":"Première interaction poissons-villageois sans coordination. Bulle obligatoire pour atteindre les zones sèches. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-08","num":"1-P-08","title":"Sauver les saumons","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-07"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Des poissons tombés du ciel sont piégés en dehors de l'eau. Le groupe doit les ramener à la rivière avant qu'ils meurent.","design_notes":"Méca time-pressure : barre de vie des saumons. Coordination requise : un joueur porte, l'autre trace le chemin. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-09","num":"1-P-09","title":"La source cachée","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["poissons-08"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Les poissons découvrent la source du phénomène : un portail aquatique caché sous le village. Climax émotionnel.","design_notes":"Acte 3 poissons. Zone très dangereuse, objets tombants continus. Les joueurs doivent alterner abri et avancée. Durée : 12 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"poissons-10","num":"1-P-10","title":"Hors de l'eau","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"fuite","unlock_conditions":{"AND":["poissons-09"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Les poissons sortent définitivement de l'eau pour rejoindre les autres groupes. Fin de l'arc indépendant.","design_notes":"DÉBLOQUE ARC MIXTE (avec conditions). Chrono hors de l'eau permanent, ressources bulle épuisables. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"villageois-01","num":"1-V-01","title":"Un matin ordinaire","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"AND":["poissons-05"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre vivent leur routine dans le village. Leur dynamique amoureuse est introduite en douceur.","design_notes":"Introduction gameplay villageois : chapeau, attaque. Pas de danger direct. Durée : 5 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"villageois-02","num":"1-V-02","title":"Les amoureux du marché","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["villageois-01"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse"],"description":"Au marché du village, des étrangetés se multiplient. Odette raconte des rumeurs inquiétantes.","design_notes":"Introduction lancer de chapeau comme méca exploration. Puzzles environnementaux. Durée : 6 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"villageois-03","num":"1-V-03","title":"Il pleut des poissons","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["villageois-02"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Des poissons commencent à tomber du ciel. Le village panique. Les quatre villageois réagissent chacun à leur façon.","design_notes":"Fin acte 1 côté villageois. Pluie de poissons = obstacles dynamiques. Les joueurs ont des réactions différentes (compétition César/Oscar). Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"villageois-04","num":"1-V-04","title":"Évacuation du village","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"fuite","unlock_conditions":{"AND":["villageois-03"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Le village doit être évacué. Les villageois doivent s'organiser — ou se mettre des bâtons dans les roues pour gagner plus de récompenses.","design_notes":"Méca trahison : possibilité de ralentir les autres pour scorer des Oscars. NPCs à sauver = points bonus. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-05","num":"1-V-05","title":"L'enquête au grenier","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["villageois-04"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre explorent le grenier abandonné du village. Ils trouvent des indices sur l'origine du phénomène.","design_notes":"DÉBLOQUE L'ARC FBI. Puzzles de déduction. Premiers documents à collecter. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-06","num":"1-V-06","title":"La cérémonie des Césars","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["villageois-05"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Malgré la catastrophe, les villageois organisent une cérémonie improvisée. Chacun rivalise pour obtenir les meilleures récompenses.","design_notes":"Pic de compétition interne. Système de score individuel visible. Coopération et sabotage en tension. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-07","num":"1-V-07","title":"Séparation forcée","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"fuite","unlock_conditions":{"AND":["villageois-06"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Une explosion sépare le groupe en deux paires. Chaque paire doit trouver son chemin pour se retrouver.","design_notes":"Split-screen ou chemins parallèles selon le nb de joueurs. Réunification = condition de progression. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-08","num":"1-V-08","title":"La vérité sur le village","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["villageois-07"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre découvrent que le village était construit sur un ancien portail. La révélation change tout.","design_notes":"DÉBLOQUE SCÈNES MIXTES (avec conditions). Cutscene narrative importante. Décision de fin d'acte. Durée : 12 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"villageois-bonus-01","num":"1-V-B01","title":"La fuite des amoureux","group":"VILLAGEOIS","branch":"bonus","players_min":2,"players_max":2,"type":"fuite","unlock_conditions":{"AND":["villageois-05"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Branche secrète : Marie et Pierre décident de fuir ensemble au lieu d'aider le village. Début d'une fin alternative.","design_notes":"Uniquement 2 joueurs. Méca de furtivité pour éviter les autres villageois. Durée : 8 min.","climax":false,"final":false,"bonus":true,"act":2},{"id":"villageois-bonus-02","num":"1-V-B02","title":"Un nouveau commencement","group":"VILLAGEOIS","branch":"bonus","players_min":2,"players_max":2,"type":"révélation","unlock_conditions":{"AND":["villageois-bonus-01"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre trouvent un refuge. Fin indépendante et romantique — mais peuvent rejoindre la cutscene finale.","design_notes":"Fin auto-suffisante OU point de jonction vers M-09 si terminée avant la fin principale. Durée : 6 min.","climax":false,"final":true,"bonus":true,"act":3},{"id":"fbi-01","num":"1-F-01","title":"Rapport d'incident","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"AND":["villageois-05"]},"roles_involved":["fbi-lance","fbi-bombe"],"description":"Deux agents FBI arrivent sur les lieux. Briefing de mission, introduction aux armes et à la coordination tactique.","design_notes":"Introduction asymétrique : J1 = lance+bombe en mode 2J. Obstacles : zones interdites, alarmes. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"fbi-02","num":"1-F-02","title":"Opération filet","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["fbi-01"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost"],"description":"Les agents déploient leurs équipements pour capturer des échantillons de poissons tombés. La lance sert de plateforme.","design_notes":"La lance = plateforme pour les autres agents. Bombe = déblocage de passages. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"fbi-03","num":"1-F-03","title":"La piste froide","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["fbi-02"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Agent Frost congèle une rivière pour permettre le passage. Agent Flûte utilise sa musique pour attirer / repousser les poissons.","design_notes":"Tous les agents présents. Pistolet glace : gel de l'eau = plateforme temporaire. Flûte : méca d'attraction. Durée : 12 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"fbi-04","num":"1-F-04","title":"Confrontation souterraine","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"combat","unlock_conditions":{"AND":["fbi-03"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Les agents découvrent une organisation secrète sous le village. Combat intense en espace confiné.","design_notes":"DÉBLOQUE ARC MIXTE (avec conditions). Boss intermédiaire. Combinaison de toutes les armes obligatoire. Durée : 15 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"fbi-05","num":"1-F-05","title":"Le portail activé","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["fbi-04"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Les agents comprennent que le portail est intentionnel. Quelqu'un contrôle la pluie de poissons. La vérité est révélée.","design_notes":"DÉBLOQUE TOUTES LES SCÈNES MIXTES restantes. Cinématique narrative. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-01","num":"1-M-01","title":"La rencontre","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"OR":["poissons-10","villageois-08"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca"],"description":"Les poissons et les villageois se retrouvent pour la première fois dans le même espace. Incompréhension et tentatives de communication.","design_notes":"Méca de traduction gestuelle. Les poissons ne parlent pas, communication via actions. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-02","num":"1-M-02","title":"Poissons et villageois","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-07","villageois-08"]},"roles_involved":["poisson-flip","poisson-flop","villageois-locyse","villageois-lionel"],"description":"Les personnages secondaires forment une alliance inattendue pour traverser une zone inondée.","design_notes":"Bulle (poissons) + chapeau (villageois) en combo. Méca mixte inédite. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-03","num":"1-M-03","title":"Les agents arrivent","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["villageois-08","fbi-04"]},"roles_involved":["fbi-lance","fbi-frost","villageois-lisa","villageois-luca"],"description":"Les agents FBI entrent en contact avec les villageois. Méfiance réciproque, mais objectifs communs.","design_notes":"Lance comme plateforme pour villageois = nouveau gameplay. Tension narrative. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-04","num":"1-M-04","title":"Sous l'eau, avec les agents","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-10","fbi-03"]},"roles_involved":["poisson-flap","poisson-flup","fbi-frost","fbi-flute"],"description":"Les poissons guident les agents FBI sous l'eau. Le pistolet glace et les bulles créent de nouvelles platformes.","design_notes":"Méca inédite : agents dans l'eau avec équipement FBI. Bulle + glace = combo plateforme. Durée : 11 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-05","num":"1-M-05","title":"Les trois groupes","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["mixte-02","mixte-03"]},"roles_involved":["poisson-flip","villageois-lisa","fbi-lance","fbi-bombe"],"description":"Pour la première fois, les trois groupes se retrouvent dans la même zone. Coordination à grande échelle.","design_notes":"Niveau complexe avec toutes les capacités disponibles. Puzzle tripartite : chaque groupe a un rôle obligatoire. Durée : 12 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-06","num":"1-M-06","title":"La vérité du portail","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["fbi-05","mixte-05"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","fbi-lance"],"description":"La grande révélation : le portail a été créé par les poissons eux-mêmes, inconsciemment, par amour pour la surface.","design_notes":"Cutscene majeure. Pivot émotionnel du jeu. Les joueurs peuvent interagir avec la cinématique. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-07","num":"1-M-07","title":"La poussée finale","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"combat","unlock_conditions":{"AND":["mixte-06"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","fbi-lance","fbi-bombe"],"description":"Les trois groupes avancent ensemble vers le portail. Vague d'ennemis et obstacles combinés.","design_notes":"Intensité maximale. Toutes les armes et capacités actives simultanément. Durée : 14 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-08","num":"1-M-08","title":"Le boss du portail","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"boss","unlock_conditions":{"AND":["mixte-07"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca","fbi-lance","fbi-frost"],"description":"Le gardien du portail. Un boss multi-phase qui change de résistances selon les dommages infligés par chaque groupe.","design_notes":"3 phases : phase 1 = vulnérable à l'eau, phase 2 = vulnérable au chapeau/attaque, phase 3 = vulnérable armes FBI. Durée : 18 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"mixte-09","num":"1-M-09","title":"Le choix","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["mixte-08"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca","fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Chaque joueur choisit le personnage qui prononcera la dernière réplique de la cutscene finale. Convergence de tous les arcs.","design_notes":"Vote ou premier à interagir = personnage de la cutscene. Branche bonus villageois peut rejoindre ici. Durée : 6 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-10","num":"1-M-10","title":"Les poissons qui tombent du ciel","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["mixte-09"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca","fbi-lance","fbi-bombe","fbi-frost","fbi-flute","poisson-flop","poisson-flup","villageois-locyse","villageois-lionel"],"description":"La cutscene finale. Le portail se ferme. Les poissons retournent à l'eau. Tout le monde se souvient.","design_notes":"Fin principale. Personnage choisi en M-09 prend la parole. Générique interactif. Durée : 8 min.","climax":false,"final":true,"bonus":false,"act":3}],"characters":[{"id":"poisson-flip","name":"Splash","actor_name":"Cocca","group":"POISSONS","role_type":"principal","summary":"Poisson curieux et courageux, premier à vouloir comprendre les perturbations qui affectent la rivière.","objective":"Comprendre l'origine des poissons qui tombent du ciel et protéger la rivière.","fear":"Perdre son monde aquatique, ne plus pouvoir nager librement.","abilities":["nage","bulle"],"notes":"Personnage principal côté Poissons. Souvent le guide dans les niveaux mixtes."},{"id":"poisson-flap","name":"Bulle","actor_name":"Cocci","group":"POISSONS","role_type":"principal","summary":"Poisson sensible avec une capacité unique : créer des bulles d'air qui permettent de survivre hors de l'eau.","objective":"Aider ses amis à traverser les zones sèches et trouver une solution au portail.","fear":"Que ses bulles éclatent au mauvais moment, mettre le groupe en danger.","abilities":["nage","bulle"],"notes":"La bulle est débloquée en P-06. Avant cela, Bulle joue comme Splash."},{"id":"poisson-flop","name":"Nemo","actor_name":"Cocco","group":"POISSONS","role_type":"secondaire","summary":"Vieux poisson sage du groupe, connaît tous les recoins de la rivière.","objective":"Guider les jeunes poissons et préserver la mémoire de la rivière.","fear":"Être oublié, que la rivière change au point de ne plus la reconnaître.","abilities":["nage"],"notes":"Personnage de soutien narratif. Apparaît surtout en P-02, P-03."},{"id":"poisson-flup","name":"Perle","actor_name":"Coccé","group":"POISSONS","role_type":"secondaire","summary":"Poisson rapide et espiègle, toujours en train d'explorer là où les autres n'osent pas aller.","objective":"Explorer, découvrir des secrets, être la première à voir ce qui se passe.","fear":"Être ralentie ou retenue par le groupe.","abilities":["nage","bulle"],"notes":"Utile pour les raccourcis dans les niveaux. Débloquée en P-03."},{"id":"villageois-lisa","name":"Marie","actor_name":"Cocca","group":"VILLAGEOIS","role_type":"principal","summary":"Villageoise déterminée et pragmatique. Amoureuse de Pierre, mais pas au point de tout sacrifier.","objective":"Protéger le village et trouver la vérité, même si elle est douloureuse.","fear":"Que Pierre fasse un mauvais choix qui les sépare définitivement.","abilities":["attaque","chapeau"],"notes":"Joue un rôle central dans la révélation de V-08. Présente dans presque tous les niveaux mixtes."},{"id":"villageois-luca","name":"Pierre","actor_name":"Cocci","group":"VILLAGEOIS","role_type":"principal","summary":"Villageois idéaliste et romantique. Prêt à tout pour Marie, parfois au détriment du groupe.","objective":"Protéger Marie et trouver un endroit sûr pour eux deux.","fear":"Perdre Marie dans le chaos.","abilities":["attaque","chapeau"],"notes":"Personnage de la branche bonus. Sa relation avec Marie est au cœur de l'arc villageois."},{"id":"villageois-locyse","name":"Odette","actor_name":"Cocco","group":"VILLAGEOIS","role_type":"secondaire","summary":"Commère du village, mais aussi la première à agir quand c'est vraiment grave.","objective":"S'assurer que le village s'en souvient et qu'on lui donne un César.","fear":"Passer inaperçue, ne pas être reconnue à sa juste valeur.","abilities":["attaque","chapeau"],"notes":"Très forte mécanique compétitive. Idéale pour introduire le système de récompenses individuelles."},{"id":"villageois-lionel","name":"Gustave","actor_name":"Coccé","group":"VILLAGEOIS","role_type":"secondaire","summary":"Villageois placide qui devient étonnamment compétent sous pression.","objective":"Garder la tête froide, ramener tout le monde à la maison.","fear":"Le chaos, le désordre, perdre ses habitudes.","abilities":["attaque","chapeau"],"notes":"Personnage surprise : révèle des capacités cachées dans les niveaux avancés."},{"id":"fbi-lance","name":"Agent Lance","actor_name":"Cocca","group":"FBI","role_type":"principal","summary":"Agent expérimenté, chef de terrain. Sa lance peut servir de plateforme pour les coéquipiers.","objective":"Fermer le portail et ramener des preuves au Bureau.","fear":"Perdre le contrôle de la situation, que la mission échoue.","abilities":["arme-lance"],"notes":"Disponible en 2J, 3J et 4J. Sa lance = mécanique de plateforme clé pour tout le groupe FBI."},{"id":"fbi-bombe","name":"Agent Bombe","actor_name":"Cocci","group":"FBI","role_type":"principal","summary":"Explosif et impulsif. Sa bombe peut détruire des murs et créer des ouvertures.","objective":"Faire sauter tous les obstacles entre le FBI et la vérité.","fear":"Faire une erreur, tout faire exploser au mauvais moment.","abilities":["arme-bombe"],"notes":"En 2J, partagé avec Agent Lance (J1 a lance+bombe). En 3J+, rôle dédié."},{"id":"fbi-frost","name":"Agent Frost","actor_name":"Cocco","group":"FBI","role_type":"secondaire","summary":"Agent discret et méthodique. Son pistolet glace congèle l'eau et les ennemis.","objective":"Neutraliser les menaces sans bruit, analyser le phénomène.","fear":"Le chaud, les environments aquatiques non contrôlés.","abilities":["arme-pistolet-glace"],"notes":"En 2J, partagé avec Flûte (J2 a frost+flûte). Eau gelée = plateforme temporaire."},{"id":"fbi-flute","name":"Agent Flûte","actor_name":"Coccé","group":"FBI","role_type":"secondaire","summary":"Agent atypique. Sa flûte attire ou repousse les poissons et affecte les ennemis.","objective":"Comprendre les poissons, peut-être communiquer avec eux.","fear":"Que personne ne prenne sa méthode au sérieux.","abilities":["arme-flute"],"notes":"Méca unique : attirer les poissons = clé pour plusieurs puzzles. En 2J, partagé avec Frost."}],"abilities":[{"id":"nage","name":"Nage","group":"POISSONS","description":"Déplacement naturel dans l'eau. Vitesse augmentée en formation banc. Permet de respirer indéfiniment sous l'eau.","characters":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"player_count_variants":{"2":"Les deux joueurs nagent librement. Formation banc active si côte à côte.","3":"Un joueur peut prendre le rôle de poisson guide (+20% vitesse groupe).","4":"Formation banc complète disponible : bonus vitesse maximal."},"unlock_scene":"poissons-01","shared":true},{"id":"bulle","name":"Bulle d'air","group":"POISSONS","description":"Crée une bulle d'air portable permettant de survivre hors de l'eau pendant 15 secondes. Peut rebondir sur les surfaces.","characters":["poisson-flap","poisson-flup"],"player_count_variants":{"2":"Bulle crée une sphère partagée : les deux joueurs restent dedans ensemble.","3":"Bulle peut créer deux sphères de taille réduite (durée 10s chacune).","4":"Une bulle par poisson concerné, durée standard. Coordination requise."},"unlock_scene":"poissons-06","shared":false},{"id":"attaque","name":"Attaque au corps à corps","group":"VILLAGEOIS","description":"Frappe directe sur les ennemis proches. Peut être chargée pour un coup plus puissant.","characters":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"player_count_variants":{"2":"Frappe simple et frappe chargée disponibles pour les deux joueurs.","3":"Un joueur peut déclencher une attaque combo avec un autre (timing précis).","4":"Attaque en chaîne possible entre tous les joueurs (max dégâts)."},"unlock_scene":"villageois-01","shared":true},{"id":"chapeau","name":"Lancer de chapeau","group":"VILLAGEOIS","description":"Lance le chapeau comme projectile. Peut rebondir sur plusieurs surfaces. Récupérable après chaque lancer.","characters":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"player_count_variants":{"2":"Chaque joueur a son propre chapeau. Rebond sur le chapeau de l'autre.","3":"Un joueur peut lancer le chapeau d'un autre, créant une trajectoire surprise.","4":"Chapeau en chaîne : peut traverser jusqu'à 4 cibles en rebondissant."},"unlock_scene":"villageois-02","shared":true},{"id":"arme-lance","name":"Lance (plateforme)","group":"FBI","description":"Arme de contact ET plateforme pour les coéquipiers. Plantée dans le sol, les autres agents peuvent monter dessus.","characters":["fbi-lance"],"player_count_variants":{"2":"J1 dispose de la lance ET de la bombe. Lance plantée = plateforme pour J2.","3":"J1 garde la lance uniquement. Lance = pont pour J2 et J3.","4":"Lance dédiée à Agent Lance. Peut porter 3 agents simultanément."},"unlock_scene":"fbi-01","shared":false},{"id":"arme-bombe","name":"Bombe","group":"FBI","description":"Explosive à minuterie ou télécommandée. Détruit les murs, crée des passages, repousse les ennemis.","characters":["fbi-bombe"],"player_count_variants":{"2":"J1 dispose de la bombe ET de la lance. Timer manuel uniquement.","3":"J2 dispose de la bombe. Télécommande débloquée en F-02.","4":"Agent Bombe dédié. Combo bombe+glace disponible avec Frost."},"unlock_scene":"fbi-01","shared":false},{"id":"arme-pistolet-glace","name":"Pistolet Glace","group":"FBI","description":"Congèle l'eau en plateforme temporaire (8 secondes) et gèle les ennemis sur place.","characters":["fbi-frost"],"player_count_variants":{"2":"J2 dispose du pistolet glace ET de la flûte. Un seul tir à la fois.","3":"J2 dispose du pistolet glace uniquement. Tirs illimités, rechargement 2s.","4":"Agent Frost dédié. Combo glace+bulle (avec Bulle) pour plateformes permanentes."},"unlock_scene":"fbi-01","shared":false},{"id":"arme-flute","name":"Flûte","group":"FBI","description":"Attire les poissons dans une zone définie ou les repousse. Peut aussi distraire certains ennemis.","characters":["fbi-flute"],"player_count_variants":{"2":"J2 dispose de la flûte ET du pistolet glace. Attire OU repousse, pas les deux.","3":"J3 dispose de la flûte uniquement. Zone d'attrait plus grande.","4":"Agent Flûte dédié. Peut coordonner avec Agent Lance pour piéger les ennemis."},"unlock_scene":"fbi-01","shared":false}]};
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let state = {
+  data: null,
+  modified: false,
+  activeTab: 'scenes',
+  selectedSceneId: null,
+  selectedCharId: null,
+  selectedAbilId: null,
+  editBuffer: {},
+  filters: {
+    group:    ['CASTING','POISSONS','VILLAGEOIS','FBI','MIXTE'],
+    branch:   ['main','bonus'],
+    act:      ['1','2','3'],
+    ggroup:   ['CASTING','POISSONS','VILLAGEOIS','FBI','MIXTE'],
+    cgroup:   ['POISSONS','VILLAGEOIS','FBI'],
+    agroup:   ['POISSONS','VILLAGEOIS','FBI'],
+  }
+};
+
+// Graph transform state
+let graphTransform = { x: 0, y: 0, k: 1 };
+
+// ═══════════════════════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════════════════════
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const isDark = current === 'dark' || (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const next = isDark ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  document.getElementById('theme-toggle-btn').textContent = next === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('se-theme', next);
+}
+
+function applyStoredTheme() {
+  const saved = localStorage.getItem('se-theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('theme-toggle-btn').textContent = saved === 'dark' ? '🌙' : '☀️';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-SAVE (debounced)
+// ═══════════════════════════════════════════════════════════════
+let _autoSaveTimers = {};
+function setupAutoSave(panelId, saveFn) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  panel.addEventListener('input',  () => debounceAutoSave(panelId, saveFn));
+  panel.addEventListener('change', () => debounceAutoSave(panelId, saveFn));
+}
+function debounceAutoSave(key, fn) {
+  clearTimeout(_autoSaveTimers[key]);
+  _autoSaveTimers[key] = setTimeout(() => { fn(); showAutoSaved(); }, 400);
+}
+function showAutoSaved() {
+  const lbl = document.getElementById('unsaved-label');
+  lbl.classList.add('visible');
+  lbl.textContent = 'Sauvegardé ✓';
+  lbl.style.color = 'var(--success)';
+  clearTimeout(_autoSaveTimers['_label']);
+  _autoSaveTimers['_label'] = setTimeout(() => {
+    if (!state.modified) { lbl.classList.remove('visible'); }
+    lbl.textContent = 'Modifications non sauvegardées';
+    lbl.style.color = '';
+  }, 1800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  applyStoredTheme();
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  document.getElementById('file-input').addEventListener('change', importJSON);
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.add('active'));
+  // Fermer le modal GitHub en cliquant l'arrière-plan
+  document.getElementById('gh-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('gh-modal')) closeGhSettings();
+  });
+  initGhSync();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 's') {
+    e.preventDefault();
+    if (ghConfig().token) ghPush();
+    else saveToStorage();
+  }
+});
+
+function loadDefaultData() {
+  const saved = localStorage.getItem('se-story-data');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed.scenes && parsed.characters && parsed.abilities) {
+        loadData(parsed);
+        toast('Session restaurée ✓', 'success');
+        return;
+      }
+    } catch (e) {}
+  }
+  loadData(DEFAULT_DATA);
+}
+
+function getEmptyTemplate() {
+  return { meta: { version:'1.0.0', title:'Nouveau projet', last_modified: new Date().toISOString().slice(0,10) },
+           scenes: [], characters: [], abilities: [] };
+}
+
+function loadData(json) {
+  state.data = json;
+  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [] };
+  if (!state.data.notes) state.data.notes = { sections: _defaultNoteSections() };
+  state.modified = false;
+  updateUnsavedIndicator();
+  renderAll();
+}
+
+function renderAll() {
+  renderScenesTable();
+  renderCharactersTable();
+  renderAbilitiesTable();
+  if (state.activeTab === 'graph') renderGraph();
+  if (state.activeTab === 'notes') renderNotes();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-'+tab));
+  closeAllPanels();
+  closeGraphPopup();
+  if (tab === 'graph')    renderGraph();
+  if (tab === 'scenario') renderTimeline();
+  if (tab === 'notes')    renderNotes();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILTERS
+// ═══════════════════════════════════════════════════════════════
+function toggleFilter(chip) {
+  chip.classList.toggle('active');
+  const key = chip.dataset.filter;
+  const val = chip.dataset.value;
+  if (chip.classList.contains('active')) {
+    if (!state.filters[key].includes(val)) state.filters[key].push(val);
+  } else {
+    state.filters[key] = state.filters[key].filter(v => v !== val);
+  }
+  renderScenesTable();
+  renderCharactersTable();
+  renderAbilitiesTable();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCENES TABLE
+// ═══════════════════════════════════════════════════════════════
+function getFilteredScenes() {
+  if (!state.data) return [];
+  const q = (document.getElementById('scene-search')?.value || '').toLowerCase();
+  return state.data.scenes.filter(s => {
+    if (!state.filters.group.includes(s.group)) return false;
+    if (!state.filters.branch.includes(s.branch)) return false;
+    if (!state.filters.act.includes(String(s.act))) return false;
+    if (q && !s.title.toLowerCase().includes(q) && !s.num.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderScenesTable() {
+  const scenes = getFilteredScenes();
+  document.getElementById('scenes-count').textContent = `${scenes.length} scène${scenes.length!==1?'s':''}`;
+  const tbody = document.getElementById('scenes-tbody');
+  tbody.innerHTML = '';
+  scenes.forEach(s => {
+    const tr = document.createElement('tr');
+    if (s.id === state.selectedSceneId) tr.classList.add('selected');
+    tr.innerHTML = `
+      <td class="td-num">${esc(s.num)}</td>
+      <td class="td-title">${esc(s.title)}<small>${esc(s.description)}</small></td>
+      <td><span class="badge badge-${s.group.toLowerCase()}">${esc(s.group)}</span></td>
+      <td><span class="dev-badge ${s.dev_status||'todo'}">${{todo:'À faire',squelette:'Squelette',in_progress:'En cours',a_tester:'À tester',done:'✓ Fait'}[s.dev_status||'todo']||'À faire'}</span></td>
+      <td><span class="badge badge-act">Acte ${s.act}</span></td>
+      <td class="players-label">${s.players_min}–${s.players_max}J</td>
+      <td><span class="badge badge-type">${esc(s.type)}</span></td>
+      <td class="flag-row">
+        ${s.bonus  ? '<span class="badge badge-bonus">bonus</span>' : ''}
+        ${s.climax ? '<span class="badge badge-climax">climax</span>' : ''}
+        ${s.final  ? '<span class="badge badge-final">final</span>' : ''}
+        ${s.branch==='bonus'?'<span class="badge badge-bonus">branche bonus</span>':''}
+      </td>
+      <td>${renderConditionsBadge(s.unlock_conditions)}</td>`;
+    tr.addEventListener('click', () => openScenePanel(s.id));
+    tbody.appendChild(tr);
+  });
+}
+
+function renderConditionsBadge(uc) {
+  if (!uc || (!uc.AND?.length && !uc.OR?.length)) return '<span style="color:var(--text3);font-size:11px">Aucune</span>';
+  const type = uc.AND?.length ? 'AND' : 'OR';
+  const ids = uc[type] || [];
+  return `<span style="font-size:10px;color:var(--text3)">${type}</span> ` +
+    ids.map(id => `<span class="tag" style="font-size:10px">${esc(id)}</span>`).join(' ');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCENE PANEL
+// ═══════════════════════════════════════════════════════════════
+function openScenePanel(id) {
+  const scene = state.data.scenes.find(s => s.id === id);
+  if (!scene) return;
+  state.selectedSceneId = id;
+  state.editBuffer = JSON.parse(JSON.stringify(scene));
+  renderScenesTable();
+  requestAnimationFrame(() => {
+    document.querySelector('tbody tr.selected')?.scrollIntoView({ block: 'nearest' });
+  });
+
+  document.getElementById('panel-scene-title').textContent = scene.num + ' — ' + scene.title;
+  const body = document.getElementById('scene-panel-body');
+
+  const condType = scene.unlock_conditions?.AND ? 'AND' : scene.unlock_conditions?.OR ? 'OR' : 'none';
+  const condIds   = scene.unlock_conditions?.AND || scene.unlock_conditions?.OR || [];
+
+  body.innerHTML = `
+    <div class="field-row">
+      ${field('ID', 'edit-input', 'id', scene.id, 'text', true)}
+      ${field('Num', 'edit-input', 'num', scene.num)}
+    </div>
+    ${field('Titre', 'edit-input', 'title', scene.title)}
+    <div class="field-row">
+      ${fieldSelect('Groupe', 'group', scene.group, ['CASTING','POISSONS','VILLAGEOIS','FBI','MIXTE'])}
+      ${fieldSelect('Branche', 'branch', scene.branch, ['main','bonus'])}
+    </div>
+    <div class="field-row">
+      ${fieldSelect('Acte', 'act', scene.act, [1,2,3])}
+      ${fieldSelect('Type', 'type', scene.type, ['intro','exploration','combat','boss','révélation','fuite','coopération'])}
+    </div>
+    <div class="field-row">
+      ${field('Joueurs min', 'edit-input', 'players_min', scene.players_min, 'number')}
+      ${field('Joueurs max', 'edit-input', 'players_max', scene.players_max, 'number')}
+    </div>
+    <div class="field-group">
+      <div class="field-label">Conditions de déblocage</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+        <select class="edit-select" id="cond-type" style="width:80px">
+          <option value="none" ${condType==='none'?'selected':''}>Aucune</option>
+          <option value="AND"  ${condType==='AND'?'selected':''}>ET (AND)</option>
+          <option value="OR"   ${condType==='OR'?'selected':''}>OU (OR)</option>
+        </select>
+      </div>
+      <div class="tag-input-wrap" id="cond-tags" onclick="document.getElementById('cond-tag-input').focus()">
+        ${condIds.map(c=>`<span class="tag">${esc(c)}<span class="tag-remove" data-id="${esc(c)}" onclick="removeCondTag(this)">✕</span></span>`).join('')}
+        <input class="tag-input" id="cond-tag-input" placeholder="Chercher scène…"
+          onkeydown="condTagKeydown(event)"
+          oninput="showTagSugg('cond-tag-input','scenes','cond-tags')"
+          onfocus="showTagSugg('cond-tag-input','scenes','cond-tags')"
+          autocomplete="off">
+        <div class="tag-suggestions" id="cond-tag-input-sugg"></div>
+      </div>
+    </div>
+    ${fieldTags('Personnages présents', 'roles-tags', 'roles-input', scene.roles_involved||[], 'characters')}
+    ${field('Description', 'edit-textarea', 'description', scene.description)}
+    ${field('Notes design', 'edit-textarea', 'design_notes', scene.design_notes)}
+    ${field('Références', 'edit-textarea', 'references', scene.references, 'text')}
+    <div class="field-group">
+      <div class="field-label">Statut développement</div>
+      <div style="display:flex;gap:8px;padding:4px 0">
+        ${[
+          ['todo','À faire'],['squelette','Squelette'],['in_progress','En cours'],
+          ['a_tester','À tester'],['done','Terminé']
+        ].map(([val,lbl]) => `<label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:12px">
+          <input type="radio" name="dev_status" value="${val}" ${(scene.dev_status||'todo')===val?'checked':''}>
+          <span class="dev-badge ${val}">${lbl}</span>
+        </label>`).join('')}
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Flags</div>
+      <div class="flags-edit">
+        ${checkbox('climax','climax',scene.climax)}
+        ${checkbox('final','final',scene.final)}
+        ${checkbox('bonus','bonus (scène)',scene.bonus)}
+      </div>
+    </div>`;
+
+  document.getElementById('scene-panel').classList.add('open');
+  requestAnimationFrame(() => setupAutoSave('scene-panel', saveScene));
+}
+
+function field(label, cls, name, val, type='text', readonly=false) {
+  const tag = cls === 'edit-textarea' ? 'textarea' : 'input';
+  const typeAttr = tag==='input' ? `type="${type}"` : '';
+  const roAttr = readonly ? 'readonly style="opacity:.5"' : '';
+  const dataAttr = `data-field="${name}"`;
+  if (tag==='textarea') return `<div class="field-group"><div class="field-label">${label}</div><textarea class="${cls}" ${dataAttr} ${roAttr}>${esc(val||'')}</textarea></div>`;
+  return `<div class="field-group"><div class="field-label">${label}</div><input class="${cls}" ${typeAttr} value="${esc(val||'')}" ${dataAttr} ${roAttr}></div>`;
+}
+
+function fieldSelect(label, name, val, options) {
+  const opts = options.map(o=>`<option value="${o}" ${String(o)===String(val)?'selected':''}>${o}</option>`).join('');
+  return `<div class="field-group"><div class="field-label">${label}</div><select class="edit-select" data-field="${name}">${opts}</select></div>`;
+}
+
+function fieldTags(label, containerId, inputId, vals, searchType) {
+  const ph = searchType === 'scenes' ? 'Chercher scène…'
+    : searchType === 'characters' ? 'Chercher personnage…'
+    : searchType === 'abilities'  ? 'Chercher capacité…'
+    : 'ID + Entrée';
+  const searchAttrs = searchType
+    ? `oninput="showTagSugg('${inputId}','${searchType}','${containerId}')" autocomplete="off"`
+    : '';
+  return `<div class="field-group"><div class="field-label">${label}</div>
+    <div class="tag-input-wrap" id="${containerId}" onclick="document.getElementById('${inputId}').focus()">
+      ${vals.map(v=>`<span class="tag">${esc(v)}<span class="tag-remove" data-container="${containerId}" onclick="removeTag(this)">✕</span></span>`).join('')}
+      <input class="tag-input" id="${inputId}" placeholder="${ph}" onkeydown="tagKeydown(event,'${containerId}')" ${searchAttrs}>
+      ${searchType ? `<div class="tag-suggestions" id="${inputId}-sugg"></div>` : ''}
+    </div></div>`;
+}
+
+function checkbox(id, label, checked) {
+  return `<label class="edit-checkbox-row"><input type="checkbox" id="cb-${id}" ${checked?'checked':''}> ${label}</label>`;
+}
+
+// ── Tag / suggestion helpers ─────────────────────────────────────
+
+function triggerPanelSave() {
+  if (state.selectedSceneId)    debounceAutoSave('scene-panel', saveScene);
+  else if (state.selectedCharId) debounceAutoSave('char-panel',  saveChar);
+  else if (state.selectedAbilId) debounceAutoSave('abil-panel',  saveAbil);
+}
+
+function condTagKeydown(e) {
+  if (e.key === 'Escape') { hideTagSugg('cond-tag-input'); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  hideTagSugg('cond-tag-input');
+  const val = e.target.value.trim();
+  if (!val) return;
+  _addCondTag(val);
+  e.target.value = '';
+}
+
+function _addCondTag(val) {
+  const wrap = document.getElementById('cond-tags');
+  if (!wrap) return;
+  if ([...wrap.querySelectorAll('.tag')].some(t => t.firstChild.textContent.trim() === val)) return;
+  const inp = document.getElementById('cond-tag-input');
+  const span = document.createElement('span');
+  span.className = 'tag';
+  span.innerHTML = `${esc(val)}<span class="tag-remove" data-id="${esc(val)}" onclick="removeCondTag(this)">✕</span>`;
+  wrap.insertBefore(span, inp);
+  triggerPanelSave();
+}
+
+function removeCondTag(el) {
+  el.parentElement.remove();
+  triggerPanelSave();
+}
+
+function tagKeydown(e, containerId) {
+  if (e.key === 'Escape') { hideTagSugg(e.target.id); return; }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  hideTagSugg(e.target.id);
+  const val = e.target.value.trim();
+  if (!val) return;
+  _addTag(containerId, val, e.target);
+  e.target.value = '';
+}
+
+function _addTag(containerId, val, inputEl) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  if ([...wrap.querySelectorAll('.tag')].some(t => t.firstChild.textContent.trim() === val)) return;
+  const inp = inputEl || wrap.querySelector('.tag-input');
+  const span = document.createElement('span');
+  span.className = 'tag';
+  span.innerHTML = `${esc(val)}<span class="tag-remove" data-container="${containerId}" onclick="removeTag(this)">✕</span>`;
+  wrap.insertBefore(span, inp);
+  triggerPanelSave();
+}
+
+function removeTag(el) {
+  el.parentElement.remove();
+  triggerPanelSave();
+}
+
+function getTagValues(containerId) {
+  return [...document.querySelectorAll(`#${containerId} .tag`)].map(t => t.firstChild.textContent.trim());
+}
+
+// ── Tag search suggestions ────────────────────────────────────────
+
+function showTagSugg(inputId, type, containerId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const q = input.value.toLowerCase();
+  const suggId = inputId + '-sugg';
+  let sug = document.getElementById(suggId);
+  if (!sug) return;
+
+  let items = [];
+  if (type === 'scenes') {
+    items = (state.data?.scenes || [])
+      .filter(s => s.id !== state.selectedSceneId)
+      .filter(s => !q || s.num.toLowerCase().includes(q) || s.title.toLowerCase().includes(q))
+      .slice(0, 10)
+      .map(s => ({ id: s.id, label: s.title, sub: s.num, avatar: null, grp: s.group }));
+  } else if (type === 'characters') {
+    items = (state.data?.characters || [])
+      .filter(c => !q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
+      .slice(0, 10)
+      .map(c => ({ id: c.id, label: c.name, sub: c.actor_name, avatar: c.image, grp: c.group }));
+  } else if (type === 'abilities') {
+    items = (state.data?.abilities || [])
+      .filter(a => !q || a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q))
+      .slice(0, 10)
+      .map(a => ({ id: a.id, label: a.name, sub: a.group, avatar: null, grp: a.group }));
+  }
+
+  if (!items.length) { sug.style.display = 'none'; return; }
+
+  sug.innerHTML = items.map(it => {
+    const av = it.avatar
+      ? `<span class="sugg-avatar"><img src="${esc(it.avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"></span>`
+      : `<span class="sugg-avatar" style="background:color-mix(in srgb,var(--c-${(it.grp||'').toLowerCase()}) 25%,var(--bg3))"></span>`;
+    return `<div class="tag-sugg-item"
+      onmousedown="addTagFromSugg(event,'${esc(it.id)}','${containerId}','${inputId}')"
+      title="${esc(it.id)}">
+      ${av}<span class="sugg-name">${esc(it.label)}</span><span class="sugg-id">${esc(it.sub||it.id)}</span>
+    </div>`;
+  }).join('');
+  sug.style.display = 'block';
+}
+
+function hideTagSugg(inputId) {
+  const el = document.getElementById(inputId + '-sugg');
+  if (el) el.style.display = 'none';
+}
+
+function addTagFromSugg(e, value, containerId, inputId) {
+  e.preventDefault();
+  if (containerId === 'cond-tags') _addCondTag(value);
+  else _addTag(containerId, value, document.getElementById(inputId));
+  document.getElementById(inputId).value = '';
+  hideTagSugg(inputId);
+}
+
+// Hide suggestions when clicking outside
+document.addEventListener('click', e => {
+  document.querySelectorAll('.tag-suggestions').forEach(s => {
+    if (!s.parentElement?.contains(e.target)) s.style.display = 'none';
+  });
+});
+
+function saveScene() {
+  const panel = document.getElementById('scene-panel');
+  const s = state.data.scenes.find(s => s.id === state.selectedSceneId);
+  if (!s) return;
+
+  // Read fields
+  panel.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.dataset.field;
+    const v = el.tagName==='SELECT' ? el.value : el.type==='number' ? Number(el.value) : el.value;
+    s[f] = v;
+  });
+
+  // Checkboxes
+  s.climax = document.getElementById('cb-climax')?.checked || false;
+  s.final  = document.getElementById('cb-final')?.checked  || false;
+  s.bonus  = document.getElementById('cb-bonus')?.checked  || false;
+
+  // Dev status
+  s.dev_status = document.querySelector('input[name="dev_status"]:checked')?.value || 'todo';
+
+  // act as int
+  s.act = Number(s.act);
+  s.players_min = Number(s.players_min);
+  s.players_max = Number(s.players_max);
+
+  // Conditions
+  const condType = document.getElementById('cond-type').value;
+  const condIds  = getTagValues('cond-tags');
+  if (condType === 'none' || condIds.length === 0) {
+    s.unlock_conditions = {};
+  } else {
+    s.unlock_conditions = { [condType]: condIds };
+  }
+
+  // Roles
+  s.roles_involved = getTagValues('roles-tags');
+
+  markModified();
+  renderScenesTable();
+  document.getElementById('panel-scene-title').textContent = s.num + ' — ' + s.title;
+  toast('Scène sauvegardée', 'success');
+}
+
+function deleteScene() {
+  if (!state.selectedSceneId) return;
+  if (!confirm('Supprimer cette scène ?')) return;
+  state.data.scenes = state.data.scenes.filter(s => s.id !== state.selectedSceneId);
+  state.selectedSceneId = null;
+  closePanel('scene-panel');
+  markModified();
+  renderScenesTable();
+  toast('Scène supprimée');
+}
+
+function addScene() {
+  const id = 'scene-' + Date.now();
+  const newScene = {
+    id, num: 'X-X-00', title: 'Nouvelle scène', group: 'POISSONS', branch: 'main',
+    players_min: 2, players_max: 4, type: 'exploration', unlock_conditions: {},
+    roles_involved: [], description: '', design_notes: '', references: '',
+    climax: false, final: false, bonus: false, act: 1, dev_status: 'todo'
+  };
+  state.data.scenes.push(newScene);
+  markModified();
+  renderScenesTable();
+  openScenePanel(id);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHARACTERS TABLE
+// ═══════════════════════════════════════════════════════════════
+function getFilteredChars() {
+  if (!state.data) return [];
+  const q = (document.getElementById('char-search')?.value||'').toLowerCase();
+  return state.data.characters.filter(c => {
+    if (!state.filters.cgroup.includes(c.group)) return false;
+    if (q && !c.name.toLowerCase().includes(q) && !c.actor_name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderCharactersTable() {
+  const chars = getFilteredChars();
+  document.getElementById('chars-count').textContent = `${chars.length} personnage${chars.length!==1?'s':''}`;
+  const tbody = document.getElementById('chars-tbody');
+  tbody.innerHTML = '';
+  chars.forEach(c => {
+    const sceneCount = state.data.scenes.filter(s => (s.roles_involved||[]).includes(c.id)).length;
+    const tr = document.createElement('tr');
+    if (c.id === state.selectedCharId) tr.classList.add('selected');
+    tr.innerHTML = `
+      <td class="td-title" style="display:flex;align-items:center;gap:8px">
+        <span class="char-avatar-sm">${c.image ? `<img src="${esc(c.image)}">` : '👤'}</span>
+        <span>${esc(c.name)}<small>${esc(c.summary)}</small></span>
+      </td>
+      <td>${esc(c.actor_name)}</td>
+      <td><span class="badge badge-${c.group.toLowerCase()}">${esc(c.group)}</span></td>
+      <td><span class="badge badge-act">${esc(c.role_type)}</span></td>
+      <td class="linked-tags">${(c.abilities||[]).map(a=>`<span class="linked-tag" onclick="event.stopPropagation();switchTab('abilities');filterByAbil('${a}')">${esc(a)}</span>`).join('')}</td>
+      <td><span class="badge badge-act">${sceneCount} scène${sceneCount!==1?'s':''}</span></td>`;
+    tr.addEventListener('click', () => openCharPanel(c.id));
+    tbody.appendChild(tr);
+  });
+}
+
+function openCharPanel(id) {
+  const c = state.data.characters.find(c => c.id === id);
+  if (!c) return;
+  state.selectedCharId = id;
+  renderCharactersTable();
+  document.getElementById('panel-char-title').textContent = c.name;
+  const body = document.getElementById('char-panel-body');
+  const avatarSrc = c.image || '';
+  body.innerHTML = `
+    <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:8px">
+      <div class="char-avatar" id="char-avatar-preview" title="Cliquer pour changer l'image" onclick="document.getElementById('char-img-file').click()">
+        ${avatarSrc ? `<img src="${esc(avatarSrc)}">` : '👤'}
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+        <div class="field-row">
+          ${field('ID', 'edit-input', 'id', c.id, 'text', true)}
+          ${fieldSelect('Groupe', 'group', c.group, ['POISSONS','VILLAGEOIS','FBI'])}
+        </div>
+        <div class="field-row">
+          ${fieldSelect('Acteur', 'actor_name', c.actor_name, ['Cocca','Cocci','Cocco','Coccé'])}
+          ${fieldSelect('Rôle', 'role_type', c.role_type, ['principal','secondaire'])}
+        </div>
+      </div>
+    </div>
+    <div class="field-group" style="margin-bottom:4px">
+      <div class="field-label">Image (fichier ou URL)</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="file" accept="image/*" id="char-img-file" style="display:none" onchange="loadCharImage(this)">
+        <input class="edit-input" id="char-img-url" placeholder="URL ou cliquer sur l'avatar pour uploader" value="${esc(avatarSrc)}" oninput="updateCharAvatarPreview(this.value)">
+        ${avatarSrc ? `<button class="btn-ghost btn-sm" onclick="clearCharImage()" title="Supprimer">✕</button>` : ''}
+      </div>
+    </div>
+    ${field('Nom du personnage', 'edit-input', 'name', c.name)}
+    ${field('Résumé', 'edit-textarea', 'summary', c.summary)}
+    ${field('Objectif', 'edit-input', 'objective', c.objective)}
+    ${field('Peur', 'edit-input', 'fear', c.fear)}
+    ${fieldTags('Capacités', 'char-abil-tags', 'char-abil-input', c.abilities||[], 'abilities')}
+    ${field('Notes', 'edit-textarea', 'notes', c.notes)}`;
+  document.getElementById('char-panel').classList.add('open');
+  requestAnimationFrame(() => setupAutoSave('char-panel', saveChar));
+}
+
+function saveChar() {
+  const panel = document.getElementById('char-panel');
+  const c = state.data.characters.find(c => c.id === state.selectedCharId);
+  if (!c) return;
+  panel.querySelectorAll('[data-field]').forEach(el => {
+    c[el.dataset.field] = el.tagName==='SELECT' ? el.value : el.value;
+  });
+  c.abilities = getTagValues('char-abil-tags');
+  c.image = document.getElementById('char-img-url')?.value || '';
+  markModified();
+  renderCharactersTable();
+  document.getElementById('panel-char-title').textContent = c.name;
+  toast('Personnage sauvegardé', 'success');
+}
+
+function loadCharImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('char-img-url').value = e.target.result;
+    updateCharAvatarPreview(e.target.result);
+    saveChar(); // image set programmatically, auto-save won't fire automatically
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateCharAvatarPreview(src) {
+  const el = document.getElementById('char-avatar-preview');
+  if (el) el.innerHTML = src ? `<img src="${src}">` : '👤';
+}
+
+function clearCharImage() {
+  document.getElementById('char-img-url').value = '';
+  updateCharAvatarPreview('');
+  markModified();
+}
+
+function deleteChar() {
+  if (!confirm('Supprimer ce personnage ?')) return;
+  state.data.characters = state.data.characters.filter(c => c.id !== state.selectedCharId);
+  state.selectedCharId = null;
+  closePanel('char-panel');
+  markModified();
+  renderCharactersTable();
+  toast('Personnage supprimé');
+}
+
+function addChar() {
+  const id = 'char-' + Date.now();
+  state.data.characters.push({ id, name:'Nouveau personnage', actor_name:'Cocca', group:'POISSONS',
+    role_type:'secondaire', summary:'', objective:'', fear:'', abilities:[], notes:'' });
+  markModified();
+  renderCharactersTable();
+  openCharPanel(id);
+}
+
+function filterByAbil(abilId) {
+  // Switch to abilities tab and highlight
+  state.selectedAbilId = abilId;
+  renderAbilitiesTable();
+  openAbilPanel(abilId);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ABILITIES TABLE
+// ═══════════════════════════════════════════════════════════════
+function getFilteredAbils() {
+  if (!state.data) return [];
+  const q = (document.getElementById('abil-search')?.value||'').toLowerCase();
+  return state.data.abilities.filter(a => {
+    if (!state.filters.agroup.includes(a.group)) return false;
+    if (q && !a.name.toLowerCase().includes(q) && !a.description.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderAbilitiesTable() {
+  const abils = getFilteredAbils();
+  document.getElementById('abils-count').textContent = `${abils.length} capacité${abils.length!==1?'s':''}`;
+  const tbody = document.getElementById('abils-tbody');
+  tbody.innerHTML = '';
+  abils.forEach(a => {
+    const unlockScene = a.unlock_scene ? state.data.scenes.find(s=>s.id===a.unlock_scene) : null;
+    const tr = document.createElement('tr');
+    if (a.id === state.selectedAbilId) tr.classList.add('selected');
+    tr.innerHTML = `
+      <td class="td-title">${esc(a.name)}<small>${esc(a.description)}</small></td>
+      <td><span class="badge badge-${a.group.toLowerCase()}">${esc(a.group)}</span></td>
+      <td class="linked-tags">${(a.characters||[]).map(cid=>{
+        const ch=state.data.characters.find(c=>c.id===cid);
+        return `<span class="linked-tag">${esc(ch?.name||cid)}</span>`;
+      }).join('')}</td>
+      <td>${unlockScene ? `<span class="tag">${esc(unlockScene.num)}</span>` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
+      <td>${a.shared ? '<span class="badge badge-type">Partagée</span>' : '—'}</td>
+      <td class="variants-grid">
+        ${a.player_count_variants ? Object.entries(a.player_count_variants).map(([k,v])=>`<div class="variant-row"><strong>${k}J</strong> ${esc((v||'').substring(0,60))}${(v||'').length>60?'…':''}</div>`).join('') : '—'}
+      </td>`;
+    tr.addEventListener('click', () => openAbilPanel(a.id));
+    tbody.appendChild(tr);
+  });
+}
+
+function openAbilPanel(id) {
+  const a = state.data.abilities.find(a => a.id === id);
+  if (!a) return;
+  state.selectedAbilId = id;
+  renderAbilitiesTable();
+  document.getElementById('panel-abil-title').textContent = a.name;
+  const body = document.getElementById('abil-panel-body');
+  const v = a.player_count_variants || {};
+  body.innerHTML = `
+    <div class="field-row">
+      ${field('ID', 'edit-input', 'id', a.id, 'text', true)}
+      ${fieldSelect('Groupe', 'group', a.group, ['POISSONS','VILLAGEOIS','FBI'])}
+    </div>
+    ${field('Nom', 'edit-input', 'name', a.name)}
+    ${field('Description', 'edit-textarea', 'description', a.description)}
+    ${fieldTags('Personnages', 'abil-char-tags', 'abil-char-input', a.characters||[])}
+    ${field('Scène déblocage (ID)', 'edit-input', 'unlock_scene', a.unlock_scene||'')}
+    <div class="field-group">
+      <div class="field-label">Partagée</div>
+      <label class="edit-checkbox-row"><input type="checkbox" id="cb-shared" ${a.shared?'checked':''}> Capacité partagée entre personnages</label>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Variante 2 joueurs</div>
+      <textarea class="edit-textarea" data-field="v2">${esc(v['2']||v.two||'')}</textarea>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Variante 3 joueurs</div>
+      <textarea class="edit-textarea" data-field="v3">${esc(v['3']||v.three||'')}</textarea>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Variante 4 joueurs</div>
+      <textarea class="edit-textarea" data-field="v4">${esc(v['4']||v.four||'')}</textarea>
+    </div>`;
+  document.getElementById('abil-panel').classList.add('open');
+  requestAnimationFrame(() => setupAutoSave('abil-panel', saveAbil));
+}
+
+function saveAbil() {
+  const panel = document.getElementById('abil-panel');
+  const a = state.data.abilities.find(a => a.id === state.selectedAbilId);
+  if (!a) return;
+  panel.querySelectorAll('[data-field]').forEach(el => {
+    const f = el.dataset.field;
+    if (['v2','v3','v4'].includes(f)) return; // handle separately
+    a[f] = el.tagName==='SELECT' ? el.value : el.value;
+  });
+  const v2 = panel.querySelector('[data-field="v2"]')?.value || '';
+  const v3 = panel.querySelector('[data-field="v3"]')?.value || '';
+  const v4 = panel.querySelector('[data-field="v4"]')?.value || '';
+  a.player_count_variants = { '2': v2, '3': v3, '4': v4 };
+  a.shared = document.getElementById('cb-shared')?.checked || false;
+  a.characters = getTagValues('abil-char-tags');
+  markModified();
+  renderAbilitiesTable();
+  document.getElementById('panel-abil-title').textContent = a.name;
+  toast('Capacité sauvegardée', 'success');
+}
+
+function deleteAbil() {
+  if (!confirm('Supprimer cette capacité ?')) return;
+  state.data.abilities = state.data.abilities.filter(a => a.id !== state.selectedAbilId);
+  state.selectedAbilId = null;
+  closePanel('abil-panel');
+  markModified();
+  renderAbilitiesTable();
+  toast('Capacité supprimée');
+}
+
+function addAbil() {
+  const id = 'abil-' + Date.now();
+  state.data.abilities.push({ id, name:'Nouvelle capacité', group:'POISSONS',
+    description:'', characters:[], player_count_variants:{'2':'','3':'','4':''}, unlock_scene:'', shared:false });
+  markModified();
+  renderAbilitiesTable();
+  openAbilPanel(id);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GRAPH VIEW (D3)
+// ═══════════════════════════════════════════════════════════════
+const GROUP_COLORS = {
+  CASTING: 'var(--c-casting)', POISSONS: 'var(--c-poissons)',
+  VILLAGEOIS: 'var(--c-villageois)', FBI: 'var(--c-fbi)', MIXTE: 'var(--c-mixte)'
+};
+
+let graphSim = null;
+
+function renderGraph() {
+  if (!state.data) return;
+  const svg = d3.select('#graph-svg');
+  const root = d3.select('#graph-root');
+  root.selectAll('*').remove();
+  if (graphSim) graphSim.stop();
+
+  const W = document.getElementById('graph-svg').clientWidth || 900;
+  const H = document.getElementById('graph-svg').clientHeight || 600;
+
+  const nodes = state.data.scenes.map(s => ({ ...s }));
+  const nodeIds = new Set(nodes.map(n => n.id));
+
+  const links = [];
+  nodes.forEach(s => {
+    const ids = s.unlock_conditions?.AND || s.unlock_conditions?.OR || [];
+    ids.forEach(srcId => {
+      if (nodeIds.has(srcId)) links.push({ source: srcId, target: s.id, type: s.branch });
+    });
+  });
+
+  // Restore saved positions or use defaults
+  const savedPos = state.data.scenario?.graph_positions || {};
+  const castingNode = nodes.find(n => n.group === 'CASTING') || nodes[0];
+  nodes.forEach(n => {
+    if (savedPos[n.id]) {
+      n.x = savedPos[n.id].x; n.y = savedPos[n.id].y;
+      n.fx = savedPos[n.id].x; n.fy = savedPos[n.id].y;
+    } else {
+      n.x = W / 2 + (Math.random() - 0.5) * 200;
+      n.y = H / 2 + (Math.random() - 0.5) * 200;
+    }
+  });
+  // Pin casting node bottom-left if no saved position
+  if (castingNode && !savedPos[castingNode.id]) {
+    castingNode.x  = W * 0.06; castingNode.y  = H * 0.85;
+    castingNode.fx = W * 0.06; castingNode.fy = H * 0.85;
+  }
+
+  // Force simulation
+  graphSim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d=>d.id).distance(90).strength(0.8))
+    .force('charge', d3.forceManyBody().strength(-300))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collision', d3.forceCollide(28));
+
+  // Apply current transform
+  root.attr('transform', `translate(${graphTransform.x},${graphTransform.y}) scale(${graphTransform.k})`);
+
+  // Links (path so arrowhead stops at node edge)
+  const link = root.append('g').selectAll('path')
+    .data(links).join('path')
+    .attr('class', d => 'graph-link' + (d.type==='main'?' main-path':'') + (_linkEditMode?' deletable':''))
+    .on('click', (ev, d) => {
+      if (!_linkEditMode) return;
+      ev.stopPropagation();
+      _graphLinkClickInLinkMode(d.source.id || d.source, d.target.id || d.target);
+    });
+
+  // Nodes
+  const node = root.append('g').selectAll('g')
+    .data(nodes).join('g')
+    .attr('class','graph-node')
+    .attr('data-id', d => d.id)
+    .call(d3.drag()
+      .clickDistance(6)
+      .filter(ev => !_linkEditMode) // disable drag in link-edit mode
+      .on('start', (ev,d) => { if(!ev.active) graphSim.alphaTarget(0.3).restart(); d.fx=d.x;d.fy=d.y; })
+      .on('drag',  (ev,d) => { d.fx=ev.x; d.fy=ev.y; })
+      .on('end',   (ev,d) => {
+        if(!ev.active) graphSim.alphaTarget(0);
+        d.fx = d.x; d.fy = d.y;
+        if (!state.data.scenario.graph_positions) state.data.scenario.graph_positions = {};
+        state.data.scenario.graph_positions[d.id] = { x: Math.round(d.x), y: Math.round(d.y) };
+        markModified();
+      }))
+    .on('click', (ev,d) => {
+      if (ev.defaultPrevented) return;
+      ev.stopPropagation();
+      if (_linkEditMode) { _graphNodeClickInLinkMode(d.id); return; }
+      showGraphPopup(d, ev);
+    });
+
+  node.append('circle')
+    .attr('r', d => d.climax||d.final ? 16 : 12)
+    .attr('fill', d => GROUP_COLORS[d.group] || '#888')
+    .attr('fill-opacity', 0.25)
+    .attr('stroke', d => GROUP_COLORS[d.group] || '#888')
+    .attr('stroke-width', d => d.climax||d.final ? 3 : 2);
+
+  // Title label below node
+  node.append('text')
+    .attr('class', 'node-label')
+    .attr('text-anchor', 'middle')
+    .attr('dy', d => (d.climax||d.final ? 30 : 26))
+    .text(d => d.title.length > 17 ? d.title.substr(0, 16) + '…' : d.title);
+
+  node.append('title').text(d => `${d.num} — ${d.title}`);
+
+  graphSim.on('tick', () => {
+    link.attr('d', d => {
+      const dx = d.target.x - d.source.x;
+      const dy = d.target.y - d.source.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 1) return '';
+      const r = (d.target.climax || d.target.final ? 19 : 15);
+      return `M${d.source.x},${d.source.y} L${d.target.x - dx/dist*r},${d.target.y - dy/dist*r}`;
+    });
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+
+  // Pan + zoom
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 4])
+    .on('zoom', (ev) => {
+      graphTransform = { x: ev.transform.x, y: ev.transform.y, k: ev.transform.k };
+      root.attr('transform', ev.transform);
+    });
+  svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(graphTransform.x,graphTransform.y).scale(graphTransform.k));
+
+  // Click on background cancels link selection
+  svg.on('click.linkmode', () => { if (_linkEditMode) _clearLinkSelection(); });
+}
+
+function graphZoom(factor) {
+  const svg = d3.select('#graph-svg');
+  svg.transition().duration(250).call(
+    d3.zoom().scaleExtent([0.2,4]).transform,
+    d3.zoomIdentity.translate(graphTransform.x,graphTransform.y).scale(graphTransform.k * factor)
+  );
+  graphTransform.k *= factor;
+}
+
+function graphReset() {
+  graphTransform = { x: 0, y: 0, k: 1 };
+  renderGraph();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PANELS
+// ═══════════════════════════════════════════════════════════════
+function closePanel(id) {
+  document.getElementById(id)?.classList.remove('open');
+  if (id==='scene-panel')    { state.selectedSceneId = null; renderScenesTable(); }
+  if (id==='char-panel')     { state.selectedCharId  = null; renderCharactersTable(); }
+  if (id==='abil-panel')     { state.selectedAbilId  = null; renderAbilitiesTable(); }
+}
+
+function closeAllPanels() {
+  ['scene-panel','char-panel','abil-panel'].forEach(closePanel);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IMPORT / EXPORT
+// ═══════════════════════════════════════════════════════════════
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const json = JSON.parse(ev.target.result);
+      if (!json.scenes || !json.characters || !json.abilities)
+        throw new Error('Structure JSON invalide (scenes / characters / abilities manquants)');
+      loadData(json);
+      toast('Import réussi — ' + (json.scenes.length) + ' scènes chargées', 'success');
+    } catch(err) {
+      toast('Erreur import : ' + err.message, 'error');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function exportJSON() {
+  if (!state.data) return;
+  state.data.meta.last_modified = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'story_data.json'; a.click();
+  URL.revokeObjectURL(url);
+  state.modified = false;
+  updateUnsavedIndicator();
+  toast('story_data.json exporté', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GITHUB SYNC
+// ═══════════════════════════════════════════════════════════════
+const GH_OWNER = 'Alaansju';
+const GH_REPO  = 'Cinema';
+
+function ghConfig() {
+  return {
+    token: localStorage.getItem('se-gh-token') || '',
+    path:  localStorage.getItem('se-gh-path')  || 'tools/story_data.json',
+  };
+}
+
+function ghSetStatus(state) {
+  const dot = document.getElementById('gh-status');
+  const btn = document.getElementById('gh-push-btn');
+  if (!dot) return;
+  dot.className = 'gh-status' + (state ? ' ' + state : '');
+  if (btn) btn.style.display = ghConfig().token ? 'flex' : 'none';
+}
+
+function showGhSettings() {
+  const cfg = ghConfig();
+  document.getElementById('gh-token-input').value = cfg.token;
+  document.getElementById('gh-path-input').value  = cfg.path;
+  document.getElementById('gh-modal-status').textContent = '';
+  const modal = document.getElementById('gh-modal');
+  modal.style.display = 'flex';
+}
+
+function closeGhSettings() {
+  document.getElementById('gh-modal').style.display = 'none';
+}
+
+function saveGhSettings() {
+  const token = document.getElementById('gh-token-input').value.trim();
+  const path  = document.getElementById('gh-path-input').value.trim();
+  localStorage.setItem('se-gh-token', token);
+  localStorage.setItem('se-gh-path',  path);
+  ghSetStatus(token ? 'ok' : '');
+  closeGhSettings();
+  toast('Configuration GitHub sauvegardée', 'success');
+}
+
+async function ghApiGet(path) {
+  const cfg = ghConfig();
+  const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {
+    headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}: ${r.statusText}`);
+  return r.json();
+}
+
+async function ghApiPut(path, content, sha, message) {
+  const cfg = ghConfig();
+  const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, content: btoa(unescape(encodeURIComponent(content))), sha })
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.message || `GitHub ${r.status}`);
+  }
+  return r.json();
+}
+
+async function ghPull() {
+  const cfg = ghConfig();
+  if (!cfg.token) { toast('Configure un token GitHub d\'abord (⚙ GitHub)', 'error'); return; }
+  const statusEl = document.getElementById('gh-modal-status');
+  if (statusEl) statusEl.textContent = '↓ Chargement…';
+  ghSetStatus('busy');
+  try {
+    const file = await ghApiGet(cfg.path);
+    const json = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g,'')))));
+    loadData(json);
+    localStorage.setItem('se-story-data', JSON.stringify(json));
+    ghSetStatus('ok');
+    if (statusEl) statusEl.textContent = '✓ Données chargées depuis GitHub';
+    closeGhSettings();
+    toast('Données chargées depuis GitHub ✓', 'success');
+  } catch(e) {
+    ghSetStatus('err');
+    if (statusEl) statusEl.textContent = '✗ ' + e.message;
+    toast('Erreur GitHub : ' + e.message, 'error');
+  }
+}
+
+async function ghPush() {
+  const cfg = ghConfig();
+  if (!cfg.token) { toast('Configure un token GitHub d\'abord (⚙ GitHub)', 'error'); showGhSettings(); return; }
+  if (!state.data) return;
+  ghSetStatus('busy');
+  const btn = document.getElementById('gh-push-btn');
+  if (btn) btn.textContent = '↑ Envoi…';
+  try {
+    // Get current SHA (needed to update an existing file)
+    let sha = undefined;
+    try { const f = await ghApiGet(cfg.path); sha = f.sha; } catch(_) {}
+    state.data.meta.last_modified = new Date().toISOString().slice(0,10);
+    const content = JSON.stringify(state.data, null, 2);
+    const date = new Date().toLocaleString('fr-FR', { dateStyle:'short', timeStyle:'short' });
+    await ghApiPut(cfg.path, content, sha, `story_data: sauvegarde automatique ${date}`);
+    // Also update localStorage
+    localStorage.setItem('se-story-data', content);
+    state.modified = false;
+    updateUnsavedIndicator();
+    ghSetStatus('ok');
+    toast('Sauvegardé sur GitHub ✓', 'success');
+  } catch(e) {
+    ghSetStatus('err');
+    toast('Erreur GitHub : ' + e.message, 'error');
+  } finally {
+    if (btn) btn.textContent = '↑ GitHub';
+  }
+}
+
+// Auto-push quand Ctrl+S si token configuré
+function initGhSync() {
+  const cfg = ghConfig();
+  ghSetStatus(cfg.token ? 'ok' : '');
+  // Charger depuis GitHub au démarrage si token présent
+  if (cfg.token) {
+    ghPull().catch(() => {
+      // Fallback sur localStorage si GitHub indisponible
+      loadDefaultData();
+    });
+  } else {
+    loadDefaultData();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _lsSaveTimer = null;
+function markModified() {
+  state.modified = true;
+  updateUnsavedIndicator();
+  clearTimeout(_lsSaveTimer);
+  _lsSaveTimer = setTimeout(saveToStorage, 1200);
+}
+
+function saveToStorage() {
+  if (!state.data) return;
+  try {
+    state.data.meta.last_modified = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('se-story-data', JSON.stringify(state.data));
+    state.modified = false;
+    updateUnsavedIndicator();
+    showAutoSaved();
+  } catch (e) { toast('Erreur sauvegarde locale : ' + e.message, 'error'); }
+}
+
+function updateUnsavedIndicator() {
+  document.getElementById('unsaved-dot').classList.toggle('visible', state.modified);
+  document.getElementById('save-btn').classList.toggle('visible', state.modified);
+  if (state.modified) {
+    const lbl = document.getElementById('unsaved-label');
+    lbl.classList.add('visible');
+    lbl.textContent = 'Modifications non sauvegardées';
+    lbl.style.color = '';
+  }
+}
+
+let toastTimer = null;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' '+type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeAllPanels(); closeGraphPopup(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToStorage(); }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GRAPH POPUP
+// ═══════════════════════════════════════════════════════════════
+let _popupSceneId = null;
+
+function showGraphPopup(scene, ev) {
+  _popupSceneId = scene.id;
+  const popup = document.getElementById('graph-popup');
+  document.getElementById('gp-num').textContent   = scene.num;
+  document.getElementById('gp-title').textContent = scene.title;
+  document.getElementById('gp-desc').textContent  = scene.description || '';
+
+  // Full design notes
+  const notesEl = document.getElementById('gp-notes');
+  notesEl.textContent = scene.design_notes ? '⚙ ' + scene.design_notes : '';
+  notesEl.style.display = scene.design_notes ? '' : 'none';
+
+  // Roles
+  const badges = document.getElementById('gp-badges');
+  let rolesHtml = '';
+  if (scene.roles_involved?.length && state.data.characters) {
+    rolesHtml = '<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;">'
+      + scene.roles_involved.map(rid => {
+          const ch = state.data.characters.find(c => c.id === rid);
+          if (!ch) return '';
+          const isMain = ch.role_type === 'principal';
+          const av = ch.image ? `<span class="char-avatar-sm" style="margin-right:3px"><img src="${esc(ch.image)}"></span>` : '';
+          return `<span class="badge badge-${(ch.group||'').toLowerCase()}" style="${isMain?'font-weight:700':''}display:inline-flex;align-items:center;gap:3px">${av}${esc(ch.name)}</span>`;
+        }).join('')
+      + '</div>';
+  }
+  badges.innerHTML = `<span class="badge badge-${scene.group.toLowerCase()}">${esc(scene.group)}</span>
+    <span class="badge badge-act">Acte ${scene.act}</span>
+    <span class="badge badge-type">${esc(scene.type)}</span>
+    ${scene.climax ? '<span class="badge badge-climax">climax</span>' : ''}
+    ${scene.final  ? '<span class="badge badge-final">final</span>'  : ''}
+    ${rolesHtml}`;
+
+  // Position popup near the click, staying inside the graph container
+  const container = document.querySelector('.graph-container');
+  const rect = container.getBoundingClientRect();
+  let x = ev.clientX - rect.left + 12;
+  let y = ev.clientY - rect.top  + 12;
+  if (x + 320 > rect.width)  x = ev.clientX - rect.left - 330;
+  if (y + 280 > rect.height) y = ev.clientY - rect.top  - 260;
+  popup.style.left = Math.max(4, x) + 'px';
+  popup.style.top  = Math.max(4, y) + 'px';
+  popup.classList.add('visible');
+}
+
+function closeGraphPopup() {
+  document.getElementById('graph-popup').classList.remove('visible');
+  _popupSceneId = null;
+}
+
+// ── Link edit mode ──────────────────────────────────────────────
+let _linkEditMode = false;
+let _linkSourceId = null;
+
+function toggleLinkEditMode() {
+  _linkEditMode = !_linkEditMode;
+  _linkSourceId = null;
+  document.getElementById('btn-edit-links').classList.toggle('active', _linkEditMode);
+  document.getElementById('link-edit-hint').style.display = _linkEditMode ? '' : 'none';
+  // Update SVG cursor
+  const svg = document.getElementById('graph-svg');
+  if (svg) svg.style.cursor = _linkEditMode ? 'crosshair' : 'grab';
+  // Re-render to apply/remove link-edit bindings
+  renderGraph();
+}
+
+function _graphNodeClickInLinkMode(nodeId) {
+  closeGraphPopup();
+  if (!_linkSourceId) {
+    // Select as source
+    _linkSourceId = nodeId;
+    document.querySelectorAll('.graph-node').forEach(el => {
+      el.classList.remove('link-source', 'link-candidate');
+      if (el.dataset.id === nodeId) el.classList.add('link-source');
+      else if (el.dataset.id !== nodeId) el.classList.add('link-candidate');
+    });
+  } else {
+    if (_linkSourceId === nodeId) { _clearLinkSelection(); return; }
+    // Create link: add source to target's unlock_conditions.AND
+    const source = _linkSourceId;
+    const target = nodeId;
+    _clearLinkSelection();
+    const scene = state.data.scenes.find(s => s.id === target);
+    if (!scene) return;
+    if (!scene.unlock_conditions) scene.unlock_conditions = {};
+    // Convert OR→AND if needed, or just use AND
+    const existing = scene.unlock_conditions.AND || scene.unlock_conditions.OR || [];
+    if (existing.includes(source)) { toast('Lien déjà existant', 'info'); return; }
+    scene.unlock_conditions = { AND: [...existing, source] };
+    markModified();
+    renderGraph();
+    toast('Lien créé ✓', 'success');
+  }
+}
+
+function _graphLinkClickInLinkMode(sourceId, targetId) {
+  const scene = state.data.scenes.find(s => s.id === targetId);
+  if (!scene) return;
+  const uc = scene.unlock_conditions;
+  if (uc?.AND) uc.AND = uc.AND.filter(id => id !== sourceId);
+  if (uc?.OR)  uc.OR  = uc.OR.filter(id => id !== sourceId);
+  if (!uc?.AND?.length && !uc?.OR?.length) scene.unlock_conditions = {};
+  markModified();
+  renderGraph();
+  toast('Lien supprimé', 'success');
+}
+
+function _clearLinkSelection() {
+  _linkSourceId = null;
+  document.querySelectorAll('.graph-node').forEach(el => el.classList.remove('link-source','link-candidate'));
+}
+
+function popupGoToScene() {
+  if (!_popupSceneId) return;
+  const id = _popupSceneId;
+  closeGraphPopup();
+  switchTab('scenes');
+  openScenePanel(id);
+}
+
+function popupToggleEdit() {
+  const popup = document.getElementById('graph-popup');
+  const isEdit = popup.classList.toggle('edit-mode');
+  document.getElementById('gp-view').style.display = isEdit ? 'none' : '';
+  document.getElementById('gp-edit').style.display = isEdit ? '' : 'none';
+  if (isEdit) _populateGraphEditForm();
+}
+
+function _populateGraphEditForm() {
+  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  if (!scene) return;
+  document.getElementById('gp-edit-num').textContent = scene.num + ' — ' + scene.title;
+  document.getElementById('gp-e-title').value  = scene.title || '';
+  document.getElementById('gp-e-desc').value   = scene.description || '';
+  document.getElementById('gp-e-notes').value  = scene.design_notes || '';
+  // Roles list — badges with remove button
+  const rolesEl = document.getElementById('gp-e-roles');
+  const roles = scene.roles_involved || [];
+  rolesEl.innerHTML = roles.map(rid => {
+    const ch = state.data.characters.find(c => c.id === rid);
+    const name = ch ? ch.name : rid;
+    const grp  = ch ? ch.group.toLowerCase() : '';
+    const bold = ch?.role_type === 'principal' ? 'font-weight:700' : '';
+    return `<span class="badge badge-${grp}" style="${bold};display:inline-flex;align-items:center;gap:4px">
+      ${esc(name)}
+      <button onclick="gpRemoveRole('${rid}')" style="background:none;border:none;cursor:pointer;padding:0;font-size:11px;color:inherit;opacity:.7" title="Retirer">✕</button>
+    </span>`;
+  }).join('') + `<div style="margin-top:4px;display:flex;gap:4px">
+    <input id="gp-role-input" class="gp-input" style="flex:1;padding:3px 6px" placeholder="Ajouter un rôle…" list="gp-role-datalist" oninput="gpRoleSuggest()">
+    <datalist id="gp-role-datalist"></datalist>
+    <button class="btn-primary btn-sm" onclick="gpAddRole()">+</button>
+  </div>`;
+  _fillRoleDatalist();
+}
+
+function _fillRoleDatalist() {
+  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  const existing = new Set(scene?.roles_involved || []);
+  const dl = document.getElementById('gp-role-datalist');
+  if (!dl) return;
+  dl.innerHTML = (state.data.characters || [])
+    .filter(c => !existing.has(c.id))
+    .map(c => `<option value="${c.id}">${c.name} (${c.group})</option>`).join('');
+}
+
+function gpRoleSuggest() { _fillRoleDatalist(); }
+
+function gpRemoveRole(rid) {
+  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  if (!scene) return;
+  scene.roles_involved = (scene.roles_involved || []).filter(r => r !== rid);
+  markModified();
+  _populateGraphEditForm();
+}
+
+function gpAddRole() {
+  const input = document.getElementById('gp-role-input');
+  const val = input?.value.trim();
+  if (!val) return;
+  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  if (!scene) return;
+  const charExists = state.data.characters.find(c => c.id === val || c.name === val);
+  const id = charExists ? charExists.id : val;
+  if (!scene.roles_involved) scene.roles_involved = [];
+  if (!scene.roles_involved.includes(id)) {
+    scene.roles_involved.push(id);
+    markModified();
+  }
+  _populateGraphEditForm();
+}
+
+function saveGraphEdit() {
+  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  if (!scene) return;
+  scene.title        = document.getElementById('gp-e-title').value.trim();
+  scene.description  = document.getElementById('gp-e-desc').value;
+  scene.design_notes = document.getElementById('gp-e-notes').value;
+  markModified();
+  renderScenesTable();
+  // Update view mode display
+  document.getElementById('gp-title').textContent = scene.title;
+  document.getElementById('gp-desc').textContent  = scene.description;
+  const notesEl = document.getElementById('gp-notes');
+  notesEl.textContent = scene.design_notes ? '⚙ ' + scene.design_notes : '';
+  notesEl.style.display = scene.design_notes ? '' : 'none';
+  toast('Scène sauvegardée ✓', 'success');
+}
+
+function popupGoToScenario() {
+  if (!_popupSceneId) return;
+  closeGraphPopup();
+  switchTab('scenario');
+  // Highlight the card on the timeline
+  setTimeout(() => {
+    const card = document.querySelector(`.tl-scene-card[data-scene-id="${_popupSceneId}"]`);
+    if (card) { card.scrollIntoView({ behavior:'smooth', block:'center' }); card.style.outline = '2px solid var(--accent)'; setTimeout(()=>card.style.outline='',1500); }
+  }, 200);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCENARIO TIMELINE
+// ═══════════════════════════════════════════════════════════════
+const TIMELINE_TRACKS = [
+  { id: 'CASTING',    label: 'Casting',      cls: 'track-casting' },
+  { id: 'POISSONS',   label: 'Poissons',     cls: 'track-poissons' },
+  { id: 'VILLAGEOIS', label: 'Villageois',   cls: 'track-villageois' },
+  { id: 'FBI',        label: 'FBI',          cls: 'track-fbi' },
+  { id: 'MIXTE',      label: 'Mixte',        cls: 'track-mixte' },
+  { id: 'NOTES',      label: 'Notes libres', cls: 'track-notes' },
+];
+const ACTS = [1, 2, 3];
+
+// Act zones on the shared X axis (pixels)
+const TL_ACT_ZONES = [
+  { act: 1, x: 0,    label: 'Acte 1 – Le calme avant la tempête' },
+  { act: 2, x: 1200, label: 'Acte 2 – Des poissons partout' },
+  { act: 3, x: 2600, label: 'Acte 3 – Les étoiles de mer' },
+];
+const TL_TOTAL_MIN = 4600;
+const TL_CARD_W    = 182;
+const TL_NOTE_W    = 170;
+const TL_STEP      = 210;   // default spacing between consecutive cards
+
+// ── Position helpers ─────────────────────────────────────────────
+
+// Scene start positions per act (offset from zone start, after casting gap)
+const TL_ACT_SCENE_OFFSET = { 1: 290, 2: 40, 3: 40 };
+
+function tlAutoX(scene) {
+  if (scene.group === 'CASTING') {
+    const castScenes = state.data.scenes.filter(s => s.group === 'CASTING');
+    return 50 + castScenes.findIndex(s => s.id === scene.id) * TL_STEP;
+  }
+  const zone = TL_ACT_ZONES.find(z => z.act === scene.act);
+  const actStart = (zone?.x ?? 0) + (TL_ACT_SCENE_OFFSET[scene.act] ?? 40);
+  const groupInAct = state.data.scenes.filter(s => s.group === scene.group && s.act === scene.act);
+  const idx = groupInAct.findIndex(s => s.id === scene.id);
+  return actStart + Math.max(0, idx) * TL_STEP;
+}
+
+function tlGetX(id, fallbackFn) {
+  return state.data.scenario?.positions?.[id] ?? fallbackFn();
+}
+
+let _tlSaveTimer = null;
+function tlSetX(id, x) {
+  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [], positions: {} };
+  if (!state.data.scenario.positions) state.data.scenario.positions = {};
+  state.data.scenario.positions[id] = Math.max(0, Math.round(x));
+  markModified();
+  clearTimeout(_tlSaveTimer);
+  _tlSaveTimer = setTimeout(showAutoSaved, 600);
+}
+
+function tlTotalWidth() {
+  let max = TL_TOTAL_MIN;
+  state.data.scenes.forEach(s => {
+    max = Math.max(max, tlGetX(s.id, () => tlAutoX(s)) + TL_CARD_W + 120);
+  });
+  (state.data.scenario?.notes || []).forEach(n => {
+    const x = state.data.scenario?.positions?.[n.id] ?? 200;
+    max = Math.max(max, x + TL_NOTE_W + 120);
+  });
+  return max;
+}
+
+// ── Drag helpers ─────────────────────────────────────────────────
+
+function makeTlDraggable(card, id) {
+  let startMX, startLeft, dragging = false, wasDragged = false;
+  card.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    startMX   = e.clientX;
+    startLeft = parseFloat(card.style.left) || 0;
+    dragging  = false;
+    const onMove = ev => {
+      const dx = ev.clientX - startMX;
+      if (!dragging && Math.abs(dx) > 5) { dragging = true; card.classList.add('dragging'); }
+      if (dragging) { card.style.left = Math.max(0, startLeft + dx) + 'px'; ev.preventDefault(); }
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (dragging) {
+        card.classList.remove('dragging');
+        tlSetX(id, parseFloat(card.style.left) || 0);
+        wasDragged = true;
+        setTimeout(() => { wasDragged = false; }, 30);
+      }
+      dragging = false;
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  // Capture phase: runs before the scene-switch click listener
+  card.addEventListener('click', e => {
+    if (wasDragged) { e.stopPropagation(); e.preventDefault(); wasDragged = false; }
+  }, true);
+}
+
+let _tlPanState = null;
+function setupTlPan() {
+  const scroll = document.querySelector('.tl-scroll');
+  if (!scroll || scroll._panSetup) return;
+  scroll._panSetup = true;
+  // Click on empty space → deselect any open panel
+  scroll.addEventListener('click', e => {
+    const t = e.target;
+    const isBackground = t === scroll ||
+      t.classList.contains('tl-rows') ||
+      t.classList.contains('tl-track-body') ||
+      t.classList.contains('tl-act-zone') ||
+      t.classList.contains('tl-act-hdr-inner') ||
+      t.classList.contains('tl-connector');
+    if (isBackground) closeAllPanels();
+  });
+
+  scroll.addEventListener('mousedown', e => {
+    const t = e.target;
+    const isBackground = t === scroll ||
+      t.classList.contains('tl-rows') ||
+      t.classList.contains('tl-track-body') ||
+      t.classList.contains('tl-act-zone') ||
+      t.classList.contains('tl-act-hdr-inner') ||
+      t.classList.contains('tl-connector');
+    if (!isBackground) return;
+    _tlPanState = { x: e.clientX, y: e.clientY, sl: scroll.scrollLeft, st: scroll.scrollTop };
+    scroll.classList.add('panning');
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!_tlPanState) return;
+    const sc = document.querySelector('.tl-scroll');
+    if (sc) { sc.scrollLeft = _tlPanState.sl - (e.clientX - _tlPanState.x); sc.scrollTop = _tlPanState.st - (e.clientY - _tlPanState.y); }
+  });
+  document.addEventListener('mouseup', () => {
+    if (_tlPanState) { _tlPanState = null; document.querySelector('.tl-scroll')?.classList.remove('panning'); }
+  });
+}
+
+// ── Render ───────────────────────────────────────────────────────
+
+function renderTimeline() {
+  if (!state.data) return;
+  const synopsisEl = document.getElementById('scenario-synopsis');
+  if (synopsisEl) synopsisEl.value = state.data.scenario?.synopsis || '';
+  [1,2,3].forEach(act => {
+    const el = document.getElementById(`scenario-synopsis-act${act}`);
+    if (el) el.value = state.data.scenario?.act_synopses?.[act] || '';
+  });
+
+  const totalW = tlTotalWidth();
+  const rows   = document.getElementById('tl-rows');
+  rows.innerHTML = '';
+
+  // Act headers row
+  const hdrsRow = document.createElement('div');
+  hdrsRow.className = 'tl-act-headers';
+  const spacer = document.createElement('div');
+  spacer.className = 'tl-label-spacer';
+  hdrsRow.appendChild(spacer);
+  const hdrsInner = document.createElement('div');
+  hdrsInner.className = 'tl-act-hdr-inner';
+  hdrsInner.style.cssText = `width:${totalW}px;min-width:${totalW}px;position:relative;height:36px;`;
+  TL_ACT_ZONES.forEach((zone, i) => {
+    const nextX = TL_ACT_ZONES[i+1]?.x ?? totalW;
+    const h = document.createElement('div');
+    h.className = `tl-act-hdr-cell act${zone.act}`;
+    h.style.cssText = `left:${zone.x}px;width:${nextX - zone.x}px;`;
+    h.textContent = zone.label;
+    hdrsInner.appendChild(h);
+  });
+  hdrsRow.appendChild(hdrsInner);
+  rows.appendChild(hdrsRow);
+
+  // Track rows
+  TIMELINE_TRACKS.forEach(track => {
+    const row = document.createElement('div');
+    row.className = `tl-track-row${track.id === 'NOTES' ? ' track-notes-row' : ''}`;
+
+    const label = document.createElement('div');
+    label.className = `tl-track-label ${track.cls}`;
+    const sceneCount = track.id === 'NOTES' ? 0
+      : state.data.scenes.filter(s => s.group === track.id).length;
+    label.innerHTML = `<span class="tl-track-name">${track.label}</span>`
+      + (sceneCount ? `<span class="tl-track-count">${sceneCount} scène${sceneCount > 1 ? 's' : ''}</span>` : '');
+    row.appendChild(label);
+
+    const body = document.createElement('div');
+    body.className = 'tl-track-body';
+    body.style.cssText = `width:${totalW}px;min-width:${totalW}px;`;
+
+    // Act zone backgrounds
+    TL_ACT_ZONES.forEach((zone, i) => {
+      const nextX = TL_ACT_ZONES[i+1]?.x ?? totalW;
+      const zone_el = document.createElement('div');
+      zone_el.className = `tl-act-zone act${zone.act}`;
+      zone_el.style.cssText = `left:${zone.x}px;width:${nextX - zone.x}px;`;
+      body.appendChild(zone_el);
+    });
+
+    // Scene cards
+    if (track.id !== 'NOTES') {
+      state.data.scenes.filter(s => s.group === track.id).forEach(scene => {
+        const x    = tlGetX(scene.id, () => tlAutoX(scene));
+        const card = makeTlSceneCard(scene);
+        card.style.left = x + 'px';
+        makeTlDraggable(card, scene.id);
+        body.appendChild(card);
+      });
+    }
+
+    // Note cards
+    (state.data.scenario?.notes || []).filter(n => n.track === track.id).forEach(note => {
+      const x    = tlGetX(note.id, () => {
+        const trackNotes = (state.data.scenario?.notes||[]).filter(n2 => n2.track === track.id);
+        const idx = trackNotes.findIndex(n2 => n2.id === note.id);
+        return 200 + idx * TL_STEP;
+      });
+      const card = makeTlNoteCard(note);
+      card.style.left = x + 'px';
+      makeTlDraggable(card, note.id);
+      body.appendChild(card);
+    });
+
+    // "+" hotspots (one per act zone, placed after last card in that zone)
+    TL_ACT_ZONES.forEach((zone, i) => {
+      const nextX = TL_ACT_ZONES[i+1]?.x ?? totalW;
+      // find rightmost card in this zone+track
+      let maxRight = zone.x + 30;
+      body.querySelectorAll('.tl-scene-card, .tl-note-card').forEach(card => {
+        const cx = parseFloat(card.style.left) || 0;
+        if (cx >= zone.x && cx < nextX) maxRight = Math.max(maxRight, cx + TL_CARD_W + 12);
+      });
+      if (maxRight + 40 < nextX) {
+        const hot = document.createElement('div');
+        hot.className = 'tl-add-hotspot';
+        hot.style.left = maxRight + 'px';
+        hot.title = 'Ajouter une note';
+        hot.textContent = '+';
+        hot.onclick = e => { e.stopPropagation(); addNoteInZone(track.id, zone.act, maxRight); };
+        body.appendChild(hot);
+      }
+    });
+
+    row.appendChild(body);
+    rows.appendChild(row);
+  });
+
+  setupTlPan();
+}
+
+function makeTlSceneCard(scene) {
+  const grp  = scene.group.toLowerCase();
+  const card = document.createElement('div');
+  card.className = 'tl-scene-card' + (scene.climax ? ' is-climax' : '') + (scene.final ? ' is-final' : '');
+  card.dataset.sceneId = scene.id;
+
+  let flags = '';
+  if (scene.climax) flags += `<span class="sc-flag climax">Climax</span>`;
+  if (scene.final)  flags += `<span class="sc-flag final">Fin</span>`;
+  if (scene.bonus)  flags += `<span class="sc-flag bonus">Bonus</span>`;
+
+  let roles = '';
+  if (scene.group === 'MIXTE' && scene.roles_involved?.length) {
+    roles = scene.roles_involved.map(rid => {
+      const ch = state.data.characters?.find(c => c.id === rid);
+      const isMain = ch?.role_type === 'principal';
+      const avatar = ch?.image ? `<img src="${esc(ch.image)}" style="width:14px;height:14px;border-radius:50%;object-fit:cover;flex-shrink:0">` : '';
+      return `<span class="sc-role${isMain?' role-main':''}">${avatar}${esc(ch ? ch.name : rid)}</span>`;
+    }).join('');
+    roles = `<div class="sc-roles">${roles}</div>`;
+  }
+
+  const desc = scene.description
+    ? `<div class="sc-desc">${esc(scene.description)}</div>` : '';
+  const notes = scene.design_notes
+    ? `<div class="sc-desnotes">⚙ ${esc(scene.design_notes)}</div>` : '';
+
+  card.innerHTML = `
+    <div class="sc-num">${esc(scene.num)}</div>
+    <div class="sc-title">${esc(scene.title)}</div>
+    ${flags  ? `<div class="sc-flags">${flags}</div>` : ''}
+    ${desc}${roles}${notes}`;
+  card.style.borderTop = `2px solid var(--c-${grp})`;
+
+  // Click to edit — only if not dragging (drag suppresses click via makeTlDraggable)
+  card.addEventListener('click', () => { switchTab('scenes'); openScenePanel(scene.id); });
+  return card;
+}
+
+function makeTlNoteCard(note) {
+  const card = document.createElement('div');
+  card.className = 'tl-note-card';
+  card.dataset.noteId = note.id;
+  const ta = document.createElement('textarea');
+  ta.placeholder = 'Note narrative, idée, lien…';
+  ta.value = note.content || '';
+  ta.addEventListener('input', () => updateNote(note.id, ta.value));
+  ta.addEventListener('mousedown', e => e.stopPropagation()); // don't start drag from textarea
+  const del = document.createElement('button');
+  del.className = 'tl-note-del';
+  del.title = 'Supprimer';
+  del.textContent = '×';
+  del.addEventListener('click', e => { e.stopPropagation(); deleteNote(note.id); });
+  card.appendChild(ta);
+  card.appendChild(del);
+  return card;
+}
+
+function addNote(track, act) { addNoteInZone(track, act, null); }
+
+function addNoteInZone(track, act, xHint) {
+  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [], positions: {} };
+  if (!state.data.scenario.positions) state.data.scenario.positions = {};
+  const note = { id: 'note-' + Date.now(), track, act, content: '' };
+  state.data.scenario.notes.push(note);
+  // Place note at xHint or just after last card on this track in this act zone
+  let x = xHint;
+  if (x == null) {
+    const zone = TL_ACT_ZONES.find(z => z.act === act);
+    x = zone ? zone.x + 30 : 30;
+  }
+  state.data.scenario.positions[note.id] = x;
+  markModified();
+  renderTimeline();
+  setTimeout(() => {
+    const ta = document.querySelector(`.tl-note-card[data-note-id="${note.id}"] textarea`);
+    if (ta) ta.focus();
+  }, 50);
+}
+
+function addGlobalNote() { addNoteInZone('NOTES', 1, 200); switchTab('scenario'); }
+
+function updateNote(id, value) {
+  const note = state.data.scenario?.notes?.find(n => n.id === id);
+  if (note) {
+    note.content = value;
+    markModified();
+    clearTimeout(_tlSaveTimer);
+    _tlSaveTimer = setTimeout(showAutoSaved, 600);
+  }
+}
+
+function deleteNote(id) {
+  if (!state.data.scenario) return;
+  // Remove position too
+  if (state.data.scenario.positions) delete state.data.scenario.positions[id];
+  state.data.scenario.notes = state.data.scenario.notes.filter(n => n.id !== id);
+  markModified();
+  renderTimeline();
+}
+
+function saveScenarioSynopsis() {
+  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [] };
+  state.data.scenario.synopsis = document.getElementById('scenario-synopsis')?.value || '';
+  markModified();
+  clearTimeout(_tlSaveTimer);
+  _tlSaveTimer = setTimeout(showAutoSaved, 600);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════════════════════════
+
+let _focusSectionId  = null;
+let _lastNotesEditor = null; // dernier éditeur ayant eu le focus
+
+function _defaultNoteSections() {
+  return [
+    { id: 'histoire',     title: 'Histoire générale',      content: '', collapsed: false },
+    { id: 'themes',       title: 'Thèmes & intentions',    content: '', collapsed: false },
+    { id: 'inspiration',  title: 'Références & inspirations', content: '', collapsed: false },
+    { id: 'ton',          title: 'Ton, style & ambiance',  content: '', collapsed: false },
+    { id: 'lore',         title: 'Lore du monde',          content: '', collapsed: true  },
+    { id: 'todo',         title: '✅ À faire',              content: '', collapsed: false },
+  ];
+}
+
+function _getNotes() {
+  if (!state.data.notes) state.data.notes = { sections: _defaultNoteSections() };
+  if (!state.data.notes.sections) state.data.notes.sections = _defaultNoteSections();
+  return state.data.notes;
+}
+
+function renderNotes() {
+  const notes     = _getNotes();
+  const container = document.getElementById('notes-sections');
+  if (!container) return;
+  container.innerHTML = '';
+
+  notes.sections.forEach((sec, idx) => {
+    const div = document.createElement('div');
+    div.className = 'notes-section' + (sec.collapsed ? ' collapsed' : '');
+    div.dataset.id = sec.id;
+
+    const arrow = sec.collapsed ? '▶' : '▼';
+    div.innerHTML = `
+      <div class="notes-section-header" onclick="toggleNoteCollapse('${sec.id}')">
+        <span class="notes-section-collapse-btn">${arrow}</span>
+        <input class="notes-section-title-input" value="${esc(sec.title)}"
+          onclick="event.stopPropagation()"
+          onchange="renameNoteSection('${sec.id}', this.value)"
+          placeholder="Titre de la section">
+        <div class="notes-section-actions" onclick="event.stopPropagation()">
+          ${idx > 0 ? `<button class="notes-section-action" title="Monter" onclick="moveNoteSection('${sec.id}',-1)">↑</button>` : ''}
+          ${idx < notes.sections.length-1 ? `<button class="notes-section-action" title="Descendre" onclick="moveNoteSection('${sec.id}',1)">↓</button>` : ''}
+          <button class="notes-section-action" title="Mode focus" onclick="openFocusMode('${sec.id}')">⛶</button>
+          <button class="notes-section-action danger" title="Supprimer" onclick="deleteNoteSection('${sec.id}')">✕</button>
+        </div>
+      </div>
+      <div class="notes-section-body">
+        <div class="notes-editor" id="notes-editor-${sec.id}"
+          contenteditable="true"
+          data-placeholder="Écris ici…"
+          data-id="${sec.id}"></div>
+      </div>`;
+    container.appendChild(div);
+
+    // Injecter le contenu après insertion dans le DOM (évite l'échappement HTML)
+    const editor = div.querySelector(`#notes-editor-${sec.id}`);
+    editor.innerHTML = sec.content || '';
+    editor.addEventListener('input',  () => saveNoteSection(sec.id));
+    editor.addEventListener('focus',  () => { _lastNotesEditor = editor; });
+    editor.addEventListener('keydown', e => {
+      // Tab → indent (au lieu de changer de focus)
+      if (e.key === 'Tab') { e.preventDefault(); document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;'); }
+    });
+  });
+
+  // Bouton ajout section
+  const addDiv = document.createElement('div');
+  addDiv.className = 'notes-add-section';
+  addDiv.innerHTML = `<button class="notes-add-btn" onclick="addNoteSection()">+ Nouvelle section</button>`;
+  container.appendChild(addDiv);
+
+  _updateWordCount();
+}
+
+function saveNoteSection(id) {
+  const notes = _getNotes();
+  const sec   = notes.sections.find(s => s.id === id);
+  if (!sec) return;
+  const editor = document.getElementById(`notes-editor-${id}`);
+  if (editor) sec.content = editor.innerHTML;
+  _updateWordCount();
+  markModified();
+}
+
+function toggleNoteCollapse(id) {
+  const notes = _getNotes();
+  const sec = notes.sections.find(s => s.id === id);
+  if (sec) { sec.collapsed = !sec.collapsed; markModified(); renderNotes(); }
+}
+
+function renameNoteSection(id, title) {
+  const notes = _getNotes();
+  const sec = notes.sections.find(s => s.id === id);
+  if (sec) { sec.title = title; markModified(); }
+}
+
+function addNoteSection() {
+  const notes = _getNotes();
+  const id = 'note-' + Date.now();
+  notes.sections.push({ id, title: 'Nouvelle section', content: '', collapsed: false });
+  markModified();
+  renderNotes();
+  // Focus sur le titre de la nouvelle section
+  setTimeout(() => {
+    const el = document.querySelector(`[data-id="${id}"] .notes-section-title-input`);
+    if (el) { el.focus(); el.select(); }
+  }, 50);
+}
+
+function deleteNoteSection(id) {
+  const notes = _getNotes();
+  const sec = notes.sections.find(s => s.id === id);
+  if (!sec) return;
+  if (!confirm(`Supprimer la section "${sec.title}" ?`)) return;
+  notes.sections = notes.sections.filter(s => s.id !== id);
+  markModified();
+  renderNotes();
+}
+
+function moveNoteSection(id, dir) {
+  const notes = _getNotes();
+  const idx = notes.sections.findIndex(s => s.id === id);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= notes.sections.length) return;
+  [notes.sections[idx], notes.sections[newIdx]] = [notes.sections[newIdx], notes.sections[idx]];
+  markModified();
+  renderNotes();
+}
+
+function _updateWordCount() {
+  const notes = _getNotes();
+  const all   = notes.sections.map(s => {
+    const el = document.getElementById(`notes-editor-${s.id}`);
+    return el ? el.innerText : s.content.replace(/<[^>]*>/g, ' ');
+  }).join(' ');
+  const words = all.trim() ? all.trim().split(/\s+/).filter(Boolean).length : 0;
+  const chars = all.replace(/\s/g,'').length;
+  const el = document.getElementById('notes-wcount');
+  if (el) el.textContent = `${words} mots · ${chars} caractères`;
+}
+
+// ── Toolbar ───────────────────────────────────────────────────────
+
+function _ensureEditorFocus() {
+  // Remet le focus dans le dernier éditeur actif (perdu lors du clic sur toolbar)
+  if (_lastNotesEditor) {
+    _lastNotesEditor.focus();
+    return true;
+  }
+  // Fallback : premier éditeur visible
+  const first = document.querySelector('#tab-notes .notes-editor');
+  if (first) { first.focus(); _lastNotesEditor = first; return true; }
+  return false;
+}
+
+function notesFmt(cmd) {
+  _ensureEditorFocus();
+  document.execCommand(cmd, false, null);
+  // Sauvegarde la section dont l'éditeur est actif
+  const id = _lastNotesEditor?.dataset.id;
+  if (id) saveNoteSection(id);
+}
+
+function notesWrapTag(tag) {
+  _ensureEditorFocus();
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const el    = document.createElement(tag);
+  try { range.surroundContents(el); }
+  catch { el.appendChild(range.extractContents()); range.insertNode(el); }
+  sel.removeAllRanges();
+  const newRange = document.createRange();
+  newRange.selectNodeContents(el);
+  sel.addRange(newRange);
+  const id = _lastNotesEditor?.dataset.id;
+  if (id) saveNoteSection(id);
+}
+
+function notesBlock(tag) {
+  _ensureEditorFocus();
+  document.execCommand('formatBlock', false, tag);
+  const id = _lastNotesEditor?.dataset.id;
+  if (id) saveNoteSection(id);
+}
+
+// ── Focus Mode ────────────────────────────────────────────────────
+
+function openFocusMode(id) {
+  const notes = _getNotes();
+  if (!id) {
+    id = _lastNotesEditor?.dataset.id || notes.sections[0]?.id;
+  }
+  const sec = notes.sections.find(s => s.id === id);
+  if (!sec) return;
+  _focusSectionId = id;
+
+  const overlay = document.getElementById('focus-overlay');
+  const titleEl = document.getElementById('focus-title');
+  const editor  = document.getElementById('focus-editor');
+  titleEl.textContent = sec.title;
+  editor.innerHTML    = sec.content || '';
+  overlay.classList.add('open');
+  editor.focus();
+  // Place le curseur à la fin
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  _updateFocusCount();
+  document.addEventListener('keydown', _focusEscHandler);
+}
+
+function closeFocusMode() {
+  if (_focusSectionId) {
+    const editor = document.getElementById('focus-editor');
+    const notes  = _getNotes();
+    const sec    = notes.sections.find(s => s.id === _focusSectionId);
+    if (sec && editor) { sec.content = editor.innerHTML; markModified(); }
+    _focusSectionId = null;
+  }
+  document.getElementById('focus-overlay').classList.remove('open');
+  document.removeEventListener('keydown', _focusEscHandler);
+  renderNotes();
+}
+
+function onFocusInput() {
+  if (!_focusSectionId) return;
+  const editor = document.getElementById('focus-editor');
+  const notes  = _getNotes();
+  const sec    = notes.sections.find(s => s.id === _focusSectionId);
+  if (sec && editor) { sec.content = editor.innerHTML; markModified(); }
+  _updateFocusCount();
+}
+
+function _updateFocusCount() {
+  const editor = document.getElementById('focus-editor');
+  const el     = document.getElementById('focus-wcount');
+  if (!editor || !el) return;
+  const text  = editor.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+  el.textContent = `${words} mots`;
+}
+
+function _focusEscHandler(e) {
+  if (e.key === 'Escape') closeFocusMode();
+}
+
+// ── Export ────────────────────────────────────────────────────────
+
+function exportNotes() {
+  const notes = _getNotes();
+  const title = state.data.meta?.title || 'Notes';
+  // Convertit chaque section en texte brut lisible
+  let out = `# ${title} — Notes\n\n`;
+  notes.sections.forEach(sec => {
+    const el   = document.getElementById(`notes-editor-${sec.id}`);
+    const text = el ? el.innerText.trim() : sec.content.replace(/<[^>]*>/g,' ').trim();
+    out += `## ${sec.title}\n\n${text || '*(vide)*'}\n\n---\n\n`;
+  });
+  const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'notes.txt'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Notes exportées ✓', 'success');
+}
+
+function saveActSynopsis(act) {
+  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [] };
+  if (!state.data.scenario.act_synopses) state.data.scenario.act_synopses = {};
+  state.data.scenario.act_synopses[act] = document.getElementById(`scenario-synopsis-act${act}`)?.value || '';
+  markModified();
+  clearTimeout(_tlSaveTimer);
+  _tlSaveTimer = setTimeout(showAutoSaved, 600);
+}
+</script>
+</body>
+</html>
