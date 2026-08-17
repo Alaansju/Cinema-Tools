@@ -3712,6 +3712,7 @@ function _dgBuild(seqId) {
     ev.stopPropagation();
     _dgHideCreationPopup();
     _dgHideLinkPopup();
+    _dgClosePanel();
   });
 
   // Port mouse events for link creation (attached after render)
@@ -3886,9 +3887,11 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         .attr('x',-NW/2+11).attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text2)');
 
       const fo = g.append('foreignObject').attr('class','dg-node-fo')
-        .attr('x',-NW/2+10).attr('width',NW-20).attr('height',2000);
+        .attr('x',-NW/2+10).attr('width',NW-20).attr('height',64)
+        .attr('pointer-events','none');
       fo.append('xhtml:div').attr('class','dg-node-text-div')
         .attr('contenteditable','true')
+        .style('pointer-events','auto')
         .on('mousedown', ev => ev.stopPropagation())
         .on('click',     ev => ev.stopPropagation())
         .on('input', function(ev, d) {
@@ -3992,8 +3995,13 @@ function _dgApplyNodeStyle(g, d, seqId) {
       .attr('stroke', isSelected ? 'var(--accent)' : circColor)
       .attr('fill', `${circColor}22`);
 
-    // Short label: last segment of id or generic
-    const lbl = nd.id.replace(/^node_/,'').slice(-6);
+    // Label: sceneId-entry/exit-N based on position in sequence
+    const seq = _seqById(_gs.seqId);
+    const allNodes = seq?.nodes || [];
+    const sceneId = seq?.scene_id || _gs.seqId || '';
+    const sameType = allNodes.filter(n => n.type === nd.type);
+    const idx = sameType.findIndex(n => n.id === nd.id) + 1;
+    const lbl = `${sceneId}-${nd.type}-${idx}`;
     g.select('.dg-node-circle-lbl').attr('display', null).text(lbl);
 
     // Port positions at circle boundary
@@ -4040,7 +4048,7 @@ function _dgApplyNodeStyle(g, d, seqId) {
       .attr('y', -nh/2+16)
       .text(char?.name || nd.speaker_id || '');
 
-    g.select('.dg-node-fo').attr('y', -nh/2+23);
+    g.select('.dg-node-fo').attr('y', -nh/2+23).attr('height', nh-34);
 
     const textDiv = g.select('.dg-node-fo div');
     if (!textDiv.empty() && document.activeElement !== textDiv.node())
