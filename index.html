@@ -3283,7 +3283,7 @@ function _charColorDot(charId, size=10) {
 }
 
 function _versionBadge(ver) {
-  const v = ver || 'all';
+  const v = (!ver || ver === 'all') ? 'other' : ver;
   return `<span class="version-badge ${v}">${v}</span>`;
 }
 
@@ -3302,6 +3302,7 @@ function _dlgVersionColor(ver) {
     case 'duo':     return '#4db8ff';
     case 'trio':    return '#ffb347';
     case 'quatuor': return '#b47aff';
+    case 'all':     return '#5a5d73'; // backward compat with old data
     default:        return '#5a5d73';
   }
 }
@@ -3499,8 +3500,8 @@ function _makeNodeCard(seqId, node) {
   card.dataset.nodeId = node.id;
   const speakerOptions = _dlgChars().map(c =>
     `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
-  const verOpts = ['all','duo','trio','quatuor'].map(v =>
-    `<option value="${v}" ${v===(node.version||'all')?'selected':''}>${v}</option>`).join('');
+  const verOpts = ['other','duo','trio','quatuor'].map(v =>
+    `<option value="${v}" ${v===((!node.version||node.version==='all')?'other':node.version)?'selected':''}>${v}</option>`).join('');
 
   card.innerHTML = `
     <div class="dlg-node-header">
@@ -3513,7 +3514,7 @@ function _makeNodeCard(seqId, node) {
       </div>
       <select style="background:none;border:none;color:var(--text2);font-size:11px;cursor:pointer"
         onchange="saveNodeField('${seqId}','${node.id}','type',this.value);this.closest('.dlg-node-card').className='dlg-node-card type-'+this.value">
-        ${['dialogue','canon','event','branch','entry','exit'].map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
+        ${['dialogue','event','entry','exit'].map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
       </select>
       <select style="background:none;border:none;font-size:11px;cursor:pointer;color:${_dlgVersionColor(node.version||'all')}"
         onchange="saveNodeField('${seqId}','${node.id}','version',this.value)">${verOpts}</select>
@@ -3628,7 +3629,7 @@ function renderDlgNodeGraph(seqId) {
       <span style="font-size:10px;color:var(--text3);margin-left:4px">Clic espace vide = créer · Tirer port = lier · Clic lien = version</span>
       <div class="dlg-ver-legend">
         <span style="color:var(--text3);font-size:10px">Liens :</span>
-        ${['all','duo','trio','quatuor'].map(v=>`<span><span class="dlg-ver-dot" style="background:${_dlgVersionColor(v)}"></span> ${v}</span>`).join('')}
+        ${['other','duo','trio','quatuor'].map(v=>`<span><span class="dlg-ver-dot" style="background:${_dlgVersionColor(v)}"></span> ${v}</span>`).join('')}
       </div>
     </div>
     <div class="dlg-graph-canvas-wrap" id="dlg-graph-canvas-wrap">
@@ -3671,7 +3672,7 @@ function _dgBuild(seqId) {
   _gs.linkData = linkData;
 
   const defs = svg.append('defs');
-  ['all','duo','trio','quatuor'].forEach(v => {
+  ['other','duo','trio','quatuor'].forEach(v => {
     defs.append('marker').attr('id', `dg-arr-${v}`)
       .attr('markerWidth',8).attr('markerHeight',8)
       .attr('refX',4).attr('refY',3).attr('orient','auto')
@@ -3818,7 +3819,7 @@ function _dgRenderLinks(linkG, linkData, seqId) {
       return g;
     }
   ).each(function(d) {
-    const ver = d.version || 'all';
+    const ver = (!d.version || d.version === 'all') ? 'other' : d.version;
     d3.select(this).select('.dg-link-line')
       .attr('stroke', _dlgVersionColor(ver))
       .attr('marker-end', `url(#dg-arr-${ver})`);
@@ -3850,8 +3851,14 @@ function _dgRenderNotes(noteG, seq, seqId) {
     const headerRect = g.append('rect').attr('class','dlg-sticky-header')
       .attr('width', nw).attr('height', 18).attr('rx', 4);
 
+    const noteTypeLabels = { narratif:'📝 Narratif', gamedesign:'🎮 Game Design', autre:'📌 Autre' };
+    const hdrLabel = noteTypeLabels[note.noteType] || '📝 Narratif';
+    const hdrTextColor = note.color === '#68d391' ? '#1a5e36' : note.color === '#fc8181' ? '#7a1a1a' : '#8b6914';
+    g.append('text').attr('x', 5).attr('y', 13)
+      .attr('font-size','9px').attr('font-weight','700').attr('fill', hdrTextColor)
+      .attr('pointer-events','none').text(hdrLabel);
     const closeBtn = g.append('text').attr('y', 13)
-      .attr('text-anchor','end').attr('font-size','11px').attr('fill','#8b6914')
+      .attr('text-anchor','end').attr('font-size','11px').attr('fill', hdrTextColor)
       .attr('cursor','pointer').text('✕')
       .on('click', () => { _dgDeleteNote(seqId, note.id); });
     closeBtn.attr('x', nw - 4);
@@ -3947,6 +3954,11 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
           if (nodeEl) { _dgApplyNodeSizeOnly(d3.select(nodeEl), nh); _gs.tick?.(); }
         });
 
+      // Character avatar image (top-right of node)
+      g.append('image').attr('class','dg-char-img')
+        .attr('width',18).attr('height',18).attr('preserveAspectRatio','xMidYMid slice')
+        .style('border-radius','3px').attr('display','none');
+
       g.append('title');
 
       // Delete button (top-right)
@@ -4026,8 +4038,8 @@ function _dgNodeEffectiveVersion(nodeId) {
     const tid = typeof lk.target === 'object' ? lk.target.id : lk.target;
     return tid === nodeId;
   });
-  if (!incoming.length) return 'all';
-  const vers = [...new Set(incoming.map(lk => lk.version || 'all'))];
+  if (!incoming.length) return 'other';
+  const vers = [...new Set(incoming.map(lk => (!lk.version || lk.version === 'all') ? 'other' : lk.version))];
   return vers.length === 1 ? vers[0] : vers.join('→');
 }
 
@@ -4099,8 +4111,8 @@ function _dgApplyNodeStyle(g, d, seqId) {
     g.select('.dg-node-bg')
       .attr('height', nh).attr('y', -nh/2)
       .attr('fill', char?.color ? char.color+'18' : 'var(--bg2)')
-      .attr('stroke', isSelected ? 'var(--accent)' : vColor)
-      .attr('stroke-width', isSelected ? 3 : 2);
+      .attr('stroke', isSelected ? 'var(--accent)' : 'var(--border)')
+      .attr('stroke-width', isSelected ? 3 : 1.5);
 
     g.select('.dg-speaker-bar')
       .attr('height', nh-10).attr('y', -nh/2+5)
@@ -4117,6 +4129,14 @@ function _dgApplyNodeStyle(g, d, seqId) {
       textDiv.text(nd.text_fr || '');
 
     g.select('.dg-node-del').attr('y', -nh/2+14).attr('x', NW/2-6);
+
+    const charImg = g.select('.dg-char-img');
+    if (char?.image) {
+      charImg.attr('href', char.image).attr('display', null)
+        .attr('x', NW/2 - 26).attr('y', -nh/2 + 2);
+    } else {
+      charImg.attr('display', 'none');
+    }
 
     g.select('.dg-port-in').attr('cx', -NW/2).attr('display', null).attr('stroke', vColor);
     g.select('.dg-port-out').attr('cx',  NW/2).attr('display', null).attr('stroke', vColor);
@@ -4168,7 +4188,7 @@ function _dgShowEditPanel(nodeId, seqId) {
   }
 
   const charOpts = _dlgChars().map(c => `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
-  const typeOpts = ['dialogue','canon','event','branch','entry','exit'].map(t =>
+  const typeOpts = ['dialogue','event','entry','exit'].map(t =>
     `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
   const effVer = _dgNodeEffectiveVersion(nodeId);
   const effVerColor = effVer.includes('→') ? 'var(--text3)' : _dlgVersionColor(effVer);
@@ -4290,13 +4310,32 @@ function _dgShowCreationPopup(screenX, screenY, cx, cy, seqId) {
     popup.appendChild(sep);
   }
 
+  const hdrNote = document.createElement('div');
+  hdrNote.className = 'dg-cpop-section';
+  hdrNote.textContent = 'Post-it';
+  popup.appendChild(hdrNote);
+  const noteTypes = [
+    { noteType:'narratif',    label:'📝 Narratif',     color:'#f6e05e' },
+    { noteType:'gamedesign',  label:'🎮 Game Design',  color:'#68d391' },
+    { noteType:'autre',       label:'📌 Autre',        color:'#fc8181' },
+  ];
+  noteTypes.forEach(({ noteType, label, color }) => {
+    const row = document.createElement('div');
+    row.className = 'dg-cpop-item';
+    row.innerHTML = `<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;display:inline-block"></span>${label}</span>`;
+    row.onclick = () => { _dgAddNoteAt(_gs.seqId, cx, cy, noteType); _dgHideCreationPopup(); };
+    popup.appendChild(row);
+  });
+
+  const sep2 = document.createElement('div');
+  sep2.className = 'dg-cpop-sep';
+  popup.appendChild(sep2);
+
   const types = [
+    { type:'dialogue', label:'💬 Dialogue' },
     { type:'event',    label:'⚡ Événement' },
-    { type:'branch',   label:'⋔ Branche' },
     { type:'entry',    label:'▶ Entrée' },
     { type:'exit',     label:'■ Fin' },
-    { type:'canon',    label:'★ Canon' },
-    { type:'dialogue', label:'💬 Dialogue' },
   ];
   const hdr2 = document.createElement('div');
   hdr2.className = 'dg-cpop-section';
@@ -4309,16 +4348,6 @@ function _dgShowCreationPopup(screenX, screenY, cx, cy, seqId) {
     row.onclick = () => { _dgCreateNodeAt(seqId, cx, cy, type, ''); _dgHideCreationPopup(); };
     popup.appendChild(row);
   });
-
-  const sep2 = document.createElement('div');
-  sep2.className = 'dg-cpop-sep';
-  popup.appendChild(sep2);
-
-  const noteRow = document.createElement('div');
-  noteRow.className = 'dg-cpop-item';
-  noteRow.innerHTML = `<span>📝 Post-it</span>`;
-  noteRow.onclick = () => { _dgAddNoteAt(_gs.seqId, cx, cy); _dgHideCreationPopup(); };
-  popup.appendChild(noteRow);
 
   document.body.appendChild(popup);
   setTimeout(() => document.addEventListener('click', _dgHideCreationPopup, { once: true }), 10);
@@ -4341,7 +4370,7 @@ function _dgCreateNodeAt(seqId, x, y, type, speakerId) {
   _gs.pendingLink.pendingIsInput = false;
 
   const srcNode = autoSrc ? (seq.nodes||[]).find(n => n.id === autoSrc) : null;
-  const inheritedVersion = autoSrc ? _dgNodeEffectiveVersion(autoSrc) : 'all';
+  const inheritedVersion = autoSrc ? _dgNodeEffectiveVersion(autoSrc) : 'other';
 
   const id = 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000);
   seq.nodes.push({
@@ -4414,10 +4443,10 @@ function _dgShowLinkVersionPopup(clientX, clientY, linkDatum, seqId) {
   const vw = window.innerWidth;
   popup.style.cssText = `left:${Math.min(clientX,vw-220)}px;top:${clientY}px;`;
 
-  ['all','duo','trio','quatuor'].forEach(v => {
+  ['other','duo','trio','quatuor'].forEach(v => {
     const btn = document.createElement('button');
     btn.className = 'btn-ghost btn-sm';
-    const cur = linkDatum.version || 'all';
+    const cur = (!linkDatum.version || linkDatum.version === 'all') ? 'other' : linkDatum.version;
     btn.style.cssText = `color:${_dlgVersionColor(v)};border-color:${v===cur?_dlgVersionColor(v):'var(--border)'};${v===cur?'background:'+_dlgVersionColor(v)+'22':''}`;
     btn.textContent = v;
     btn.onclick = () => {
@@ -4556,15 +4585,17 @@ function _dgAddNote() {
   const wrap = document.getElementById('dlg-graph-canvas-wrap');
   const W = wrap?.clientWidth || 800, H = wrap?.clientHeight || 500;
   const t = _gs.transform || d3.zoomIdentity;
-  _dgAddNoteAt(_gs.seqId, (W/2-t.x)/t.k, (H/2-t.y)/t.k);
+  _dgAddNoteAt(_gs.seqId, (W/2-t.x)/t.k, (H/2-t.y)/t.k, 'narratif');
 }
 
-function _dgAddNoteAt(seqId, x, y) {
+function _dgAddNoteAt(seqId, x, y, noteType) {
   const seq = _seqById(seqId);
   if (!seq) return;
   if (!seq.canvas_notes) seq.canvas_notes = [];
+  const noteColors = { narratif: '#f6e05e', gamedesign: '#68d391', autre: '#fc8181' };
+  const color = noteColors[noteType] || '#f6e05e';
   const id = 'note_' + Date.now();
-  seq.canvas_notes.push({ id, text: '', x, y, color: '#f6e05e', w: 150, h: 80 });
+  seq.canvas_notes.push({ id, text: '', x, y, color, noteType: noteType||'narratif', w: 150, h: 80 });
   markModified();
   const noteG = d3.select('#dg-notes');
   _dgRenderNotes(noteG, seq, seqId);
@@ -4668,7 +4699,7 @@ function addNode(seqId, afterNodeId) {
   if (!seq.nodes) seq.nodes = [];
   const id = _genNodeId();
   const newNode = {
-    id, type: 'dialogue', version: 'all', speaker_id: '', is_canon: false,
+    id, type: 'dialogue', version: 'other', speaker_id: '', is_canon: false,
     locale_key: _generateLocaleKey(seqId, id),
     text_fr: '', emotion: '', rhythm_duration_ms: 0, rhythm_syllables: 0,
     links: [], conditions: {}, x: 0, y: 0
