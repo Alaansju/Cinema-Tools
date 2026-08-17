@@ -3821,26 +3821,28 @@ function _dgNoteH(text) {
 function _dgRenderNotes(noteG, seq, seqId) {
   noteG.selectAll('.dlg-sticky').remove();
   const notes = seq?.canvas_notes || [];
-  const noteW = 150;
 
   notes.forEach(note => {
-    let noteH = _dgNoteH(note.text);
+    let nw = note.w || 150;
+    let nh = note.h || _dgNoteH(note.text);
+
     const g = noteG.append('g').attr('class','dlg-sticky')
       .attr('transform',`translate(${note.x||0},${note.y||0})`);
 
     const bodyRect = g.append('rect').attr('class','dlg-sticky-body')
-      .attr('width', noteW).attr('height', noteH).attr('rx', 4);
+      .attr('width', nw).attr('height', nh).attr('rx', 4);
 
-    g.append('rect').attr('class','dlg-sticky-header')
-      .attr('width', noteW).attr('height', 18).attr('rx', 4);
+    const headerRect = g.append('rect').attr('class','dlg-sticky-header')
+      .attr('width', nw).attr('height', 18).attr('rx', 4);
 
-    g.append('text').attr('x', noteW-4).attr('y', 13)
+    const closeBtn = g.append('text').attr('y', 13)
       .attr('text-anchor','end').attr('font-size','11px').attr('fill','#8b6914')
       .attr('cursor','pointer').text('✕')
       .on('click', () => { _dgDeleteNote(seqId, note.id); });
+    closeBtn.attr('x', nw - 4);
 
     const fo = g.append('foreignObject')
-      .attr('x', 2).attr('y', 20).attr('width', noteW-4).attr('height', noteH-22);
+      .attr('x', 2).attr('y', 20).attr('width', nw - 4).attr('height', nh - 22);
     const ta = fo.append('xhtml:textarea')
       .attr('class','dlg-sticky-ta')
       .style('width','100%').style('height','100%')
@@ -3850,16 +3852,38 @@ function _dgRenderNotes(noteG, seq, seqId) {
       .text(note.text || '');
     ta.on('input', function() {
       note.text = this.value; markModified();
-      noteH = _dgNoteH(this.value);
-      bodyRect.attr('height', noteH);
-      fo.attr('height', noteH - 22);
-      this.style.height = 'auto';
-      this.style.height = this.scrollHeight + 'px';
     });
     ta.on('mousedown', ev => ev.stopPropagation());
 
+    // Resize handle (bottom-right corner triangle)
+    const GRIP = 12;
+    const grip = g.append('rect').attr('class','dlg-sticky-grip')
+      .attr('width', GRIP).attr('height', GRIP).attr('rx', 2)
+      .attr('fill','#8b6914').attr('opacity', 0.45).attr('cursor','se-resize')
+      .attr('x', nw - GRIP).attr('y', nh - GRIP);
+
+    const updateSize = () => {
+      bodyRect.attr('width', nw).attr('height', nh);
+      headerRect.attr('width', nw);
+      closeBtn.attr('x', nw - 4);
+      fo.attr('width', nw - 4).attr('height', nh - 22);
+      grip.attr('x', nw - GRIP).attr('y', nh - GRIP);
+    };
+
+    grip.call(d3.drag()
+      .on('start', ev => ev.sourceEvent?.stopPropagation())
+      .on('drag', (ev) => {
+        nw = Math.max(80, nw + ev.dx);
+        nh = Math.max(50, nh + ev.dy);
+        note.w = nw; note.h = nh;
+        updateSize();
+        markModified();
+      }));
+
+    // Drag note (excluding textarea and grip)
     g.call(d3.drag()
-      .filter(ev => ev.target.tagName !== 'textarea')
+      .filter(ev => ev.target.tagName !== 'textarea' &&
+                    !ev.target.classList.contains('dlg-sticky-grip'))
       .on('start', ev => { ev.sourceEvent?.stopPropagation(); })
       .on('drag', (ev) => {
         note.x = (note.x||0) + ev.dx;
@@ -4252,6 +4276,16 @@ function _dgShowCreationPopup(screenX, screenY, cx, cy, seqId) {
     popup.appendChild(row);
   });
 
+  const sep2 = document.createElement('div');
+  sep2.className = 'dg-cpop-sep';
+  popup.appendChild(sep2);
+
+  const noteRow = document.createElement('div');
+  noteRow.className = 'dg-cpop-item';
+  noteRow.innerHTML = `<span>📝 Post-it</span>`;
+  noteRow.onclick = () => { _dgAddNoteAt(_gs.seqId, cx, cy); _dgHideCreationPopup(); };
+  popup.appendChild(noteRow);
+
   document.body.appendChild(popup);
   setTimeout(() => document.addEventListener('click', _dgHideCreationPopup, { once: true }), 10);
 }
@@ -4279,7 +4313,7 @@ function _dgCreateNodeAt(seqId, x, y, type, speakerId) {
   if (autoSrc) {
     _gs.pendingLink.pendingSource = null;
     const srcNode = (seq.nodes||[]).find(n => n.id === autoSrc);
-    if (srcNode) { if (!srcNode.links) srcNode.links = []; srcNode.links.push({ target: id, version: 'all' }); }
+    if (srcNode) { if (!srcNode.links) srcNode.links = []; srcNode.links.push({ target: id, version: srcNode.version || 'all' }); }
   }
   markModified();
   renderDlgNodeGraph(seqId);
@@ -4295,7 +4329,7 @@ function _dgCreateLink(sourceId, targetId, seqId) {
   if (!src) return;
   if (!src.links) src.links = [];
   if (src.links.some(lk => lk.target === targetId)) { toast('Lien déjà existant'); return; }
-  src.links.push({ target: targetId, version: 'all' });
+  src.links.push({ target: targetId, version: src.version || 'all' });
   markModified();
   _dgRebuildLinks(seqId);
   toast('Lien créé', 'success');
@@ -4469,18 +4503,21 @@ function _dgStopKeyboardShortcuts() {
 }
 
 function _dgAddNote() {
-  const seq = _seqById(_gs.seqId);
-  if (!seq) return;
-  if (!seq.canvas_notes) seq.canvas_notes = [];
   const wrap = document.getElementById('dlg-graph-canvas-wrap');
   const W = wrap?.clientWidth || 800, H = wrap?.clientHeight || 500;
   const t = _gs.transform || d3.zoomIdentity;
+  _dgAddNoteAt(_gs.seqId, (W/2-t.x)/t.k, (H/2-t.y)/t.k);
+}
+
+function _dgAddNoteAt(seqId, x, y) {
+  const seq = _seqById(seqId);
+  if (!seq) return;
+  if (!seq.canvas_notes) seq.canvas_notes = [];
   const id = 'note_' + Date.now();
-  seq.canvas_notes.push({ id, text: '', x: (W/2-t.x)/t.k, y: (H/2-t.y)/t.k, color: '#f6e05e' });
+  seq.canvas_notes.push({ id, text: '', x, y, color: '#f6e05e', w: 150, h: 80 });
   markModified();
-  // Re-render just the notes layer
   const noteG = d3.select('#dg-notes');
-  _dgRenderNotes(noteG, seq, _gs.seqId);
+  _dgRenderNotes(noteG, seq, seqId);
 }
 
 function _dgDeleteNote(seqId, noteId) {
