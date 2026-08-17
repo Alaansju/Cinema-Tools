@@ -656,9 +656,65 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .dlg-table-wrap td.text-col { max-width:320px; }
 
 /* ── Dialogue: View D — Node graph ────────────────────────────── */
-.dlg-graph-container { flex:1; position:relative; overflow:hidden; }
+.dlg-graph-layout { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+.dlg-graph-toolbar {
+  display:flex; align-items:center; gap:6px; padding:6px 12px;
+  border-bottom:1px solid var(--border); background:var(--bg2); flex-shrink:0; flex-wrap:wrap;
+}
+.dlg-graph-toolbar .sep { width:1px; height:20px; background:var(--border); margin:0 2px; }
+.dlg-ver-legend { display:flex; align-items:center; gap:8px; margin-left:auto; font-size:11px; }
+.dlg-ver-dot { display:inline-block; width:10px; height:10px; border-radius:50%; }
+.dlg-graph-canvas-wrap { flex:1; position:relative; overflow:hidden; }
 #dlg-graph-svg { width:100%; height:100%; cursor:grab; }
 #dlg-graph-svg:active { cursor:grabbing; }
+#dlg-graph-svg.connect-mode { cursor:crosshair; }
+
+/* Node edit panel */
+.dlg-node-edit-panel {
+  position:absolute; top:0; right:0; height:100%; width:260px;
+  background:var(--bg2); border-left:1px solid var(--border);
+  display:flex; flex-direction:column; overflow-y:auto;
+  box-shadow:-4px 0 16px rgba(0,0,0,.2); z-index:10;
+}
+.dlg-nep-header {
+  display:flex; align-items:center; gap:8px; padding:10px 12px;
+  border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.dlg-nep-title { font-size:12px; font-weight:700; flex:1; }
+.dlg-nep-body { padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+.dlg-nep-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); margin-bottom:2px; }
+.dlg-nep-links { display:flex; flex-direction:column; gap:4px; }
+.dlg-nep-link-row { display:flex; align-items:center; gap:4px; font-size:11px; padding:4px 6px; background:var(--bg3); border-radius:4px; }
+.dlg-nep-link-row span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Post-its */
+.dlg-sticky { cursor:default; }
+.dlg-sticky-body { fill:#f6e05e; stroke:#d4b84a; stroke-width:1; }
+[data-theme="dark"] .dlg-sticky-body { fill:#3a3200; stroke:#5a4d00; }
+.dlg-sticky textarea {
+  width:100%; height:100%; resize:none; border:none; outline:none;
+  background:transparent; font-family:inherit; font-size:11px; color:#1a1a00; padding:4px;
+}
+[data-theme="dark"] .dlg-sticky textarea { color:#e8d900; }
+.dlg-sticky-header { cursor:move; fill:rgba(0,0,0,.08); }
+
+/* Version link colors (svg) */
+.dlg-link-all      { stroke: #5a5d73; }
+.dlg-link-duo      { stroke: #4db8ff; }
+.dlg-link-trio     { stroke: #ffb347; }
+.dlg-link-quatuor  { stroke: #b47aff; }
+
+/* Seq create modal */
+.seq-create-modal-bg {
+  position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex;
+  align-items:center; justify-content:center; z-index:9999;
+}
+.seq-create-modal {
+  background:var(--bg2); border:1px solid var(--border); border-radius:10px;
+  padding:24px; width:360px; display:flex; flex-direction:column; gap:14px;
+}
+.seq-create-modal h3 { font-size:14px; font-weight:700; }
+.seq-create-modal .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
 </style>
 </head>
 <body>
@@ -939,12 +995,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
         <select class="edit-select" id="dlg-filter-scene" onchange="renderDlgList()" style="width:180px;padding:4px 8px">
           <option value="">Toutes les scènes</option>
         </select>
-        <select class="edit-select" id="dlg-filter-version" onchange="renderDlgList()" style="width:130px;padding:4px 8px">
-          <option value="">Toutes versions</option>
-          <option value="duo">Duo</option>
-          <option value="trio">Trio</option>
-          <option value="quatuor">Quatuor</option>
-        </select>
         <span class="filter-count" id="dlg-count"></span>
       </div>
       <div class="dlg-view-area" id="dlg-view-area">
@@ -980,6 +1030,35 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   </div>
 
 </div><!-- workspace -->
+
+<!-- ── Modal: Créer une séquence ───────────────────────────────── -->
+<div class="seq-create-modal-bg" id="seq-create-modal-bg" style="display:none" onclick="if(event.target===this)_closeCreateSeqModal()">
+  <div class="seq-create-modal">
+    <h3>Nouvelle séquence de dialogue</h3>
+    <div>
+      <div class="dlg-nep-label">Nom de la séquence</div>
+      <input class="edit-input" id="scm-label" placeholder="Ex : Entrée dans la salle…" style="width:100%">
+    </div>
+    <div>
+      <div class="dlg-nep-label">Scène liée</div>
+      <select class="edit-select" id="scm-scene" style="width:100%">
+        <option value="">— Aucune scène —</option>
+      </select>
+    </div>
+    <div>
+      <div class="dlg-nep-label">Acte</div>
+      <select class="edit-select" id="scm-act" style="width:100%">
+        <option value="1">Acte 1</option>
+        <option value="2">Acte 2</option>
+        <option value="3">Acte 3</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="_closeCreateSeqModal()">Annuler</button>
+      <button class="btn-primary" onclick="confirmCreateSeq()">Créer</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Mode Focus ──────────────────────────────────────────────── -->
 <div class="focus-overlay" id="focus-overlay">
@@ -3189,6 +3268,15 @@ function _generateLocaleKey(seqId, nodeId) {
   return `${sceneId}_${seqId}_${nodeId}`.replace(/[^a-zA-Z0-9_]/g, '_');
 }
 
+function _dlgVersionColor(ver) {
+  switch (ver) {
+    case 'duo':     return '#4db8ff';
+    case 'trio':    return '#ffb347';
+    case 'quatuor': return '#b47aff';
+    default:        return '#5a5d73';
+  }
+}
+
 // ── Tab switch & sub-nav ──────────────────────────────────────────
 
 function dlgSwitchView(view) {
@@ -3199,20 +3287,18 @@ function dlgSwitchView(view) {
   if (filterEl) filterEl.style.display = ['list','table'].includes(view) ? '' : 'none';
   const viewArea = document.getElementById('dlg-view-area');
   if (!viewArea) return;
-  if (view === 'list')   renderDlgList();
+  if (view === 'list')        renderDlgList();
   else if (view === 'editor') renderDlgEditor(state.selectedSeqId);
   else if (view === 'table')  renderDlgTable();
   else if (view === 'graph')  renderDlgNodeGraph(state.selectedSeqId);
 }
 
 function renderDialogues() {
-  // Populate scene filter dropdown
   const sceneSelect = document.getElementById('dlg-filter-scene');
   if (sceneSelect && sceneSelect.children.length <= 1) {
     _dlgScenes().forEach(s => {
       const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.num + ' — ' + s.title;
+      opt.value = s.id; opt.textContent = s.num + ' — ' + s.title;
       sceneSelect.appendChild(opt);
     });
   }
@@ -3224,12 +3310,10 @@ function renderDialogues() {
 // ── View A: Sequence list ────────────────────────────────────────
 
 function _filteredSeqs() {
-  const q       = (document.getElementById('dlg-search')?.value || '').toLowerCase();
-  const sceneF  = document.getElementById('dlg-filter-scene')?.value || '';
-  const verF    = document.getElementById('dlg-filter-version')?.value || '';
+  const q      = (document.getElementById('dlg-search')?.value || '').toLowerCase();
+  const sceneF = document.getElementById('dlg-filter-scene')?.value || '';
   return _dlgSeqs().filter(seq => {
     if (sceneF && seq.scene_id !== sceneF) return false;
-    if (verF   && seq.version !== verF)   return false;
     if (q && !seq.label.toLowerCase().includes(q) && !(seq.scene_id||'').toLowerCase().includes(q)) return false;
     return true;
   });
@@ -3248,7 +3332,7 @@ function renderDlgList() {
   wrap.className = 'dlg-list-wrap';
 
   if (seqs.length === 0) {
-    wrap.innerHTML = '<div class="empty-state" style="padding:40px"><p>Aucune séquence de dialogue. Cliquez sur "+ Séquence" pour commencer.</p></div>';
+    wrap.innerHTML = '<div class="empty-state" style="padding:40px"><p>Aucune séquence. Cliquez sur "+ Séquence" pour commencer.</p></div>';
     viewArea.appendChild(wrap);
     return;
   }
@@ -3257,31 +3341,32 @@ function renderDlgList() {
     const card = document.createElement('div');
     card.className = 'dlg-seq-card' + (seq.id === state.selectedSeqId ? ' selected' : '');
     card.dataset.id = seq.id;
-
-    // Gather unique speakers
     const speakerIds = [...new Set((seq.nodes||[]).map(n => n.speaker_id).filter(Boolean))];
     const speakerDots = speakerIds.map(sid => _charColorDot(sid, 12)).join('');
-
     const scene = _dlgScenes().find(s => s.id === seq.scene_id);
     const sceneLabel = scene ? `<span class="tag" style="font-size:10px">${esc(scene.num)}</span>` : '';
+    // version breakdown: count nodes per version
+    const vCounts = {};
+    (seq.nodes||[]).forEach(n => { const v = n.version||'all'; vCounts[v] = (vCounts[v]||0)+1; });
+    const vBadges = Object.entries(vCounts).map(([v,c]) =>
+      `<span class="version-badge ${v}" style="font-size:9px">${v} ×${c}</span>`).join('');
 
     card.innerHTML = `
       <div class="dlg-seq-header">
         <span class="dlg-seq-label">${esc(seq.label || seq.id)}</span>
-        ${_versionBadge(seq.version)}
         <span class="badge badge-act" style="font-size:10px">${(seq.nodes||[]).length} nœud${(seq.nodes||[]).length!==1?'s':''}</span>
       </div>
       <div class="dlg-seq-meta">
         ${sceneLabel}
         ${seq.act ? `<span class="badge badge-act" style="font-size:10px">Acte ${seq.act}</span>` : ''}
-        <span style="font-size:10px;color:var(--text3)">Score : ${seq.priority_score||0}</span>
+        ${vBadges}
         <div class="dlg-seq-speakers" style="margin-left:auto;display:flex;gap:3px;align-items:center">${speakerDots}</div>
       </div>
       ${seq.notes ? `<div style="font-size:11px;color:var(--text3)">${esc(seq.notes)}</div>` : ''}`;
 
     card.addEventListener('click', () => {
       state.selectedSeqId = seq.id;
-      dlgSwitchView('editor');
+      dlgSwitchView('graph');
     });
     wrap.appendChild(card);
   });
@@ -3292,12 +3377,12 @@ function renderDlgList() {
   viewArea.appendChild(wrap);
 }
 
-// ── View B: Node editor ──────────────────────────────────────────
+// ── View B: Node editor (list) ───────────────────────────────────
 
 function openSequenceEditor(seqId) {
   state.selectedSeqId = seqId;
   switchTab('dialogues');
-  dlgSwitchView('editor');
+  dlgSwitchView('graph');
 }
 
 function dlgFilterByScene(sceneId) {
@@ -3314,7 +3399,6 @@ function renderDlgEditor(seqId) {
   const layout = document.createElement('div');
   layout.className = 'dlg-editor-layout';
 
-  // ── Left sidebar: sequence list ─────────────────────
   const sidebar = document.createElement('div');
   sidebar.className = 'dlg-seq-sidebar';
   sidebar.innerHTML = `<div class="dlg-seq-sidebar-header">Séquences</div>`;
@@ -3323,8 +3407,7 @@ function renderDlgEditor(seqId) {
   _dlgSeqs().forEach(s => {
     const item = document.createElement('div');
     item.className = 'dlg-seq-sidebar-item' + (s.id === seqId ? ' active' : '');
-    item.textContent = s.label || s.id;
-    item.title = s.scene_id || '';
+    item.textContent = s.label || s.id; item.title = s.scene_id || '';
     item.addEventListener('click', () => { state.selectedSeqId = s.id; renderDlgEditor(s.id); });
     sideList.appendChild(item);
   });
@@ -3334,40 +3417,31 @@ function renderDlgEditor(seqId) {
   sidebar.appendChild(sideList);
   sidebar.appendChild(addSeqBtn);
 
-  // ── Right: node editor ──────────────────────────────
   const editorWrap = document.createElement('div');
   editorWrap.style.cssText = 'flex:1;display:flex;flex-direction:column;overflow:hidden;';
 
   const seq = _seqById(seqId);
   if (!seq) {
     editorWrap.innerHTML = '<div class="empty-state" style="flex:1"><p>Sélectionne une séquence</p></div>';
-    layout.appendChild(sidebar);
-    layout.appendChild(editorWrap);
-    viewArea.appendChild(layout);
+    layout.appendChild(sidebar); layout.appendChild(editorWrap); viewArea.appendChild(layout);
     return;
   }
 
-  // Meta panel
   const metaPanel = document.createElement('div');
   metaPanel.className = 'dlg-seq-meta-panel';
   const scene = _dlgScenes().find(s => s.id === seq.scene_id);
   metaPanel.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <strong style="font-size:13px">${esc(seq.label || seq.id)}</strong>
-      ${_versionBadge(seq.version)}
       ${scene ? `<span class="tag" style="font-size:10px">${esc(scene.num)} — ${esc(scene.title)}</span>` : ''}
-      <span style="font-size:11px;color:var(--text3)">Score : ${seq.priority_score||0}</span>
       <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="editSequenceMeta('${seq.id}')">✏ Modifier</button>
       <button class="btn-danger btn-sm" onclick="deleteSequence('${seq.id}')">Supprimer</button>
     </div>`;
 
   const nodeEditor = document.createElement('div');
   nodeEditor.className = 'dlg-node-editor';
-
-  // "+" button at top
   nodeEditor.appendChild(_makeAddNodeBtn(seq.id, null));
-
-  (seq.nodes || []).forEach((node, i) => {
+  (seq.nodes || []).forEach(node => {
     nodeEditor.appendChild(_makeNodeCard(seq.id, node));
     nodeEditor.appendChild(_makeAddNodeBtn(seq.id, node.id));
   });
@@ -3390,15 +3464,13 @@ function _makeAddNodeBtn(seqId, afterNodeId) {
 function _makeNodeCard(seqId, node) {
   const char = _charById(node.speaker_id);
   const charColor = char?.color || '#888888';
-  const charName  = char?.name  || node.speaker_id || '—';
-
   const card = document.createElement('div');
   card.className = `dlg-node-card type-${node.type||'dialogue'}`;
   card.dataset.nodeId = node.id;
-
   const speakerOptions = _dlgChars().map(c =>
-    `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`
-  ).join('');
+    `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const verOpts = ['all','duo','trio','quatuor'].map(v =>
+    `<option value="${v}" ${v===(node.version||'all')?'selected':''}>${v}</option>`).join('');
 
   card.innerHTML = `
     <div class="dlg-node-header">
@@ -3406,15 +3478,15 @@ function _makeNodeCard(seqId, node) {
         <span class="dlg-node-speaker-dot" style="background:${esc(charColor)}"></span>
         <select style="background:none;border:none;color:var(--text);font-weight:600;font-size:12px;cursor:pointer;max-width:120px"
           onchange="saveNodeField('${seqId}','${node.id}','speaker_id',this.value);_refreshNodeCard(this.closest('.dlg-node-card'),'${seqId}','${node.id}')">
-          <option value="">— Personnage —</option>
-          ${speakerOptions}
+          <option value="">— Personnage —</option>${speakerOptions}
         </select>
       </div>
       <select style="background:none;border:none;color:var(--text2);font-size:11px;cursor:pointer"
         onchange="saveNodeField('${seqId}','${node.id}','type',this.value);this.closest('.dlg-node-card').className='dlg-node-card type-'+this.value">
-        ${['dialogue','canon','event','branch'].map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
+        ${['dialogue','canon','event','branch','entry','exit'].map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
       </select>
-      ${node.is_canon ? '<span class="node-type-badge canon" style="font-size:9px">Canon</span>' : ''}
+      <select style="background:none;border:none;font-size:11px;cursor:pointer;color:${_dlgVersionColor(node.version||'all')}"
+        onchange="saveNodeField('${seqId}','${node.id}','version',this.value)">${verOpts}</select>
       <div class="dlg-node-actions">
         <button class="btn-ghost btn-sm" title="Dupliquer" onclick="duplicateNode('${seqId}','${node.id}')">⎘</button>
         <button class="btn-ghost btn-sm" title="Supprimer" onclick="deleteNode('${seqId}','${node.id}')">✕</button>
@@ -3435,7 +3507,6 @@ function _makeNodeCard(seqId, node) {
         placeholder="n" value="${node.rhythm_syllables||''}"
         oninput="saveNodeField('${seqId}','${node.id}','rhythm_syllables',+this.value)">
     </div>`;
-
   return card;
 }
 
@@ -3453,7 +3524,6 @@ function renderDlgTable() {
   const viewArea = document.getElementById('dlg-view-area');
   if (!viewArea) return;
   viewArea.innerHTML = '';
-
   const wrap = document.createElement('div');
   wrap.className = 'dlg-table-wrap';
 
@@ -3462,8 +3532,7 @@ function renderDlgTable() {
     const scene = _dlgScenes().find(s => s.id === seq.scene_id);
     (seq.nodes || []).forEach(node => {
       if (node.type === 'event' || node.type === 'branch') return;
-      const char = _charById(node.speaker_id);
-      rows.push({ seq, scene, node, char });
+      rows.push({ seq, scene, node, char: _charById(node.speaker_id) });
     });
   });
 
@@ -3471,8 +3540,7 @@ function renderDlgTable() {
   const filtered = q ? rows.filter(r =>
     (r.node.text_fr||'').toLowerCase().includes(q) ||
     (r.node.locale_key||'').toLowerCase().includes(q) ||
-    (r.char?.name||'').toLowerCase().includes(q)
-  ) : rows;
+    (r.char?.name||'').toLowerCase().includes(q)) : rows;
 
   const cntEl = document.getElementById('dlg-count');
   if (cntEl) cntEl.textContent = `${filtered.length} réplique${filtered.length!==1?'s':''}`;
@@ -3480,20 +3548,14 @@ function renderDlgTable() {
   wrap.innerHTML = `
     <table>
       <thead><tr>
-        <th>Clé locale</th>
-        <th>Scène</th>
-        <th>Séquence</th>
-        <th>Version</th>
-        <th>Personnage</th>
-        <th>Texte FR</th>
-        <th>Émotion</th>
-        <th>Canon</th>
+        <th>Clé locale</th><th>Scène</th><th>Séquence</th><th>Version</th>
+        <th>Personnage</th><th>Texte FR</th><th>Émotion</th><th>Canon</th>
       </tr></thead>
       <tbody>${filtered.map(({seq,scene,node,char}) => `<tr>
         <td class="key-col">${esc(node.locale_key||_generateLocaleKey(seq.id,node.id))}</td>
         <td><span class="tag" style="font-size:10px">${esc(scene?.num||seq.scene_id)}</span></td>
         <td style="font-size:12px">${esc(seq.label||seq.id)}</td>
-        <td>${_versionBadge(seq.version)}</td>
+        <td>${_versionBadge(node.version||'all')}</td>
         <td style="display:flex;align-items:center;gap:5px">${_charColorDot(char?.id,10)}<span style="font-size:12px">${esc(char?.name||node.speaker_id||'—')}</span></td>
         <td class="text-col" style="font-size:12px">${esc(node.text_fr||'')}</td>
         <td style="font-size:11px;color:var(--text3)">${esc(node.emotion||'')}</td>
@@ -3501,124 +3563,612 @@ function renderDlgTable() {
       </tr>`).join('')}
       </tbody>
     </table>`;
-
   viewArea.appendChild(wrap);
 }
 
-// ── View D: Node graph ────────────────────────────────────────────
+// ── View D: Node graph (interactive editor) ───────────────────────
+
+// Graph sub-state (rebuilt each render)
+let _gs = {
+  seqId: null, sim: null, selectedNodeId: null,
+  connectMode: false, connectSource: null,
+  transform: null, nodes: [], linkData: []
+};
 
 function renderDlgNodeGraph(seqId) {
   const viewArea = document.getElementById('dlg-view-area');
   if (!viewArea) return;
-  viewArea.innerHTML = `<div class="dlg-graph-container"><svg id="dlg-graph-svg"></svg></div>`;
 
+  const seqs = _dlgSeqs();
+  if (!seqId && seqs.length) seqId = seqs[0].id;
+  state.selectedSeqId = seqId;
+
+  viewArea.innerHTML = `<div class="dlg-graph-layout" id="dlg-graph-layout">
+    <div class="dlg-graph-toolbar" id="dlg-graph-toolbar">
+      <select class="edit-select" id="dg-seq-sel" style="max-width:220px;font-size:12px;padding:4px 8px"
+        onchange="state.selectedSeqId=this.value;renderDlgNodeGraph(this.value)">
+        ${seqs.map(s=>`<option value="${s.id}" ${s.id===seqId?'selected':''}>${esc(s.label||s.id)}</option>`).join('')}
+      </select>
+      <div class="sep"></div>
+      <button class="btn-ghost btn-sm" id="dg-btn-addnode" onclick="_dgAddNodeCenter()" title="Double-clic sur le canvas aussi">+ Nœud</button>
+      <button class="btn-ghost btn-sm" id="dg-btn-addnote" onclick="_dgAddNote()">+ Post-it</button>
+      <div class="sep"></div>
+      <button class="btn-ghost btn-sm" id="dg-btn-connect" onclick="_dgToggleConnect()" title="Connecter deux nœuds">🔗 Connecter</button>
+      <button class="btn-ghost btn-sm" id="dg-btn-del" onclick="_dgDeleteSelected()" title="Supprimer sélection">🗑 Suppr.</button>
+      <div class="sep"></div>
+      <button class="btn-ghost btn-sm" onclick="editSequenceMeta(state.selectedSeqId)">✏ Séquence</button>
+      <div class="dlg-ver-legend">
+        <span style="color:var(--text3);font-size:10px">Liens :</span>
+        ${['all','duo','trio','quatuor'].map(v=>`<span><span class="dlg-ver-dot" style="background:${_dlgVersionColor(v)}"></span> ${v}</span>`).join('')}
+      </div>
+    </div>
+    <div class="dlg-graph-canvas-wrap" id="dlg-graph-canvas-wrap">
+      <svg id="dlg-graph-svg"></svg>
+      <div class="dlg-node-edit-panel" id="dlg-node-edit-panel" style="display:none"></div>
+    </div>
+  </div>`;
+
+  _gs = { seqId, sim: null, selectedNodeId: null, connectMode: false, connectSource: null, transform: null, nodes: [], linkData: [] };
+
+  _dgBuild(seqId);
+}
+
+function _dgBuild(seqId) {
   const seq = _seqById(seqId);
-  if (!seq || !(seq.nodes||[]).length) {
-    viewArea.innerHTML = '<div class="empty-state" style="flex:1"><p>Sélectionne une séquence avec des nœuds</p></div>';
-    return;
-  }
-
-  const nodes = (seq.nodes || []).map(n => ({ ...n }));
-  const links = [];
-  const nodeIds = new Set(nodes.map(n => n.id));
-  nodes.forEach(n => {
-    if (n.next_node && nodeIds.has(n.next_node))
-      links.push({ source: n.id, target: n.next_node });
-  });
-
-  const W = viewArea.clientWidth || 800;
-  const H = viewArea.clientHeight || 500;
-
-  // Lay out nodes in a vertical chain by default
-  nodes.forEach((n, i) => {
-    n.x = W / 2 + (Math.random() - 0.5) * 80;
-    n.y = 80 + i * 100;
-  });
-
   const svg = d3.select('#dlg-graph-svg');
-  svg.attr('width', W).attr('height', H);
   svg.selectAll('*').remove();
 
+  const wrap = document.getElementById('dlg-graph-canvas-wrap');
+  const W = wrap?.clientWidth || 800;
+  const H = wrap?.clientHeight || 500;
+
+  // Build node data with positions (from saved x/y, or auto-layout)
+  const rawNodes = (seq?.nodes || []);
+  const nodeSet  = new Set(rawNodes.map(n => n.id));
+  const nodes = rawNodes.map((n, i) => ({
+    id: n.id, _data: n,
+    x: n.x || W/2 + (Math.random()-.5)*200,
+    y: n.y || 80 + i * 110,
+  }));
+
+  // Build link data from nodes[].links[]
+  const linkData = [];
+  rawNodes.forEach(n => {
+    (n.links || []).forEach(lk => {
+      if (nodeSet.has(lk.target))
+        linkData.push({ source: n.id, target: lk.target, version: lk.version || 'all' });
+    });
+  });
+
+  _gs.nodes = nodes;
+  _gs.linkData = linkData;
+
+  // Arrow markers per version
   const defs = svg.append('defs');
-  defs.append('marker').attr('id','dlg-arrow').attr('markerWidth',8).attr('markerHeight',8)
-    .attr('refX',18).attr('refY',3).attr('orient','auto')
-    .append('path').attr('d','M0,0 L0,6 L8,3 z').attr('fill','var(--text3)');
+  ['all','duo','trio','quatuor'].forEach(v => {
+    defs.append('marker').attr('id', `dg-arr-${v}`)
+      .attr('markerWidth',8).attr('markerHeight',8)
+      .attr('refX',20).attr('refY',3).attr('orient','auto')
+      .append('path').attr('d','M0,0 L0,6 L8,3 z')
+      .attr('fill', _dlgVersionColor(v));
+  });
 
-  const root = svg.append('g');
+  const root = svg.append('g').attr('id','dg-root');
 
-  const sim = d3.forceSimulation(nodes)
-    .force('link', d3.forceLink(links).id(d=>d.id).distance(100).strength(0.9))
-    .force('charge', d3.forceManyBody().strength(-200))
-    .force('y', d3.forceY((d,i) => 80 + i * 110).strength(0.4))
-    .force('x', d3.forceX(W/2).strength(0.1))
-    .force('collision', d3.forceCollide(50));
+  const linkG  = root.append('g').attr('id','dg-links');
+  const noteG  = root.append('g').attr('id','dg-notes');
+  const nodeG  = root.append('g').attr('id','dg-nodes');
 
-  const link = root.append('g').selectAll('line')
-    .data(links).join('line')
-    .attr('stroke','var(--border)').attr('stroke-width',2)
-    .attr('marker-end','url(#dlg-arrow)');
-
-  const node = root.append('g').selectAll('g')
-    .data(nodes).join('g')
-    .attr('class','graph-node')
-    .call(d3.drag()
-      .on('start',(ev,d)=>{if(!ev.active)sim.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y;})
-      .on('drag', (ev,d)=>{d.fx=ev.x;d.fy=ev.y;})
-      .on('end',  (ev,d)=>{if(!ev.active)sim.alphaTarget(0);}));
-
-  node.append('rect')
-    .attr('width', 120).attr('height', 40).attr('rx', 6)
-    .attr('x', -60).attr('y', -20)
-    .attr('fill', d => { const c = _charById(d.speaker_id); return c?.color ? c.color + '33' : 'var(--bg2)'; })
-    .attr('stroke', d => { const c = _charById(d.speaker_id); return c?.color || 'var(--border)'; })
-    .attr('stroke-width', 2);
-
-  node.append('text').attr('text-anchor','middle').attr('dy','-4px')
-    .attr('font-size','9px').attr('fill','var(--text3)')
-    .text(d => { const c = _charById(d.speaker_id); return c?.name || d.speaker_id || '—'; });
-
-  node.append('text').attr('text-anchor','middle').attr('dy','10px')
-    .attr('font-size','10px').attr('fill','var(--text)')
-    .text(d => (d.text_fr||'').slice(0,22) + ((d.text_fr||'').length > 22 ? '…' : ''));
-
-  node.append('title').text(d => d.text_fr || d.id);
-
-  const zoom = d3.zoom().scaleExtent([0.2,3]).on('zoom', ev => root.attr('transform', ev.transform));
+  // Zoom / pan
+  const zoom = d3.zoom().scaleExtent([0.1,4]).on('zoom', ev => {
+    _gs.transform = ev.transform;
+    root.attr('transform', ev.transform);
+  });
   svg.call(zoom);
+  if (_gs.transform) svg.call(zoom.transform, _gs.transform);
+
+  // Double-click on canvas background → add node
+  svg.on('dblclick.bg', function(ev) {
+    if (ev.target !== this && ev.target.tagName !== 'svg') return;
+    ev.stopPropagation();
+    const [cx, cy] = d3.pointer(ev, root.node());
+    _dgAddNodeAt(seqId, cx, cy);
+  });
+
+  // Force simulation — soft forces so manual positions are respected
+  const sim = d3.forceSimulation(nodes)
+    .alphaDecay(0.04).velocityDecay(0.75)
+    .force('link',      d3.forceLink(linkData).id(d=>d.id).distance(140).strength(0.3))
+    .force('charge',    d3.forceManyBody().strength(-160))
+    .force('collision', d3.forceCollide(70))
+    .force('cx',        d3.forceX(W/2).strength(0.02))
+    .force('cy',        d3.forceY(H/2).strength(0.02));
+
+  _gs.sim = sim;
+
+  _dgRenderLinks(linkG, linkData);
+  _dgRenderNotes(noteG, seq, seqId);
+  _dgRenderNodes(nodeG, nodes, sim, seqId);
 
   sim.on('tick', () => {
-    link.attr('x1', d=>d.source.x).attr('y1', d=>d.source.y)
-        .attr('x2', d=>d.target.x).attr('y2', d=>d.target.y);
-    node.attr('transform', d=>`translate(${d.x},${d.y})`);
+    linkG.selectAll('line')
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => _dgLinkEndX(d)).attr('y2', d => _dgLinkEndY(d));
+    nodeG.selectAll('.dg-node').attr('transform', d => `translate(${d.x},${d.y})`);
   });
+}
+
+function _dgLinkEndX(d) {
+  const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  return d.target.x - (dx/len)*65;
+}
+function _dgLinkEndY(d) {
+  const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  return d.target.y - (dy/len)*65;
+}
+
+function _dgRenderLinks(linkG, linkData) {
+  linkG.selectAll('line').data(linkData, d => d.source+'>'+d.target+'>'+d.version)
+    .join('line')
+    .attr('stroke', d => _dlgVersionColor(d.version||'all'))
+    .attr('stroke-width', 2).attr('stroke-opacity', 0.9)
+    .attr('marker-end', d => `url(#dg-arr-${d.version||'all'})`);
+}
+
+function _dgRenderNotes(noteG, seq, seqId) {
+  noteG.selectAll('.dlg-sticky').remove();
+  const notes = seq?.canvas_notes || [];
+  const noteW = 150, noteH = 100;
+
+  notes.forEach(note => {
+    const g = noteG.append('g').attr('class','dlg-sticky')
+      .attr('transform',`translate(${note.x||0},${note.y||0})`);
+
+    g.append('rect').attr('class','dlg-sticky-body')
+      .attr('width', noteW).attr('height', noteH).attr('rx', 4);
+
+    // Header bar (drag handle)
+    g.append('rect').attr('class','dlg-sticky-header')
+      .attr('width', noteW).attr('height', 18).attr('rx', 4);
+
+    g.append('text').attr('x', noteW-4).attr('y', 13)
+      .attr('text-anchor','end').attr('font-size','11px').attr('fill','#8b6914')
+      .attr('cursor','pointer').text('✕')
+      .on('click', () => { _dgDeleteNote(seqId, note.id); });
+
+    // Editable text via foreignObject
+    const fo = g.append('foreignObject')
+      .attr('x', 2).attr('y', 20).attr('width', noteW-4).attr('height', noteH-22);
+    const ta = fo.append('xhtml:textarea')
+      .attr('class','dlg-sticky-ta')
+      .style('width','100%').style('height','100%')
+      .style('resize','none').style('border','none').style('outline','none')
+      .style('background','transparent').style('font-family','inherit')
+      .style('font-size','11px').style('color','inherit').style('padding','2px')
+      .text(note.text || '');
+    ta.on('input', function() {
+      note.text = this.value; markModified();
+    });
+    ta.on('mousedown', ev => ev.stopPropagation()); // prevent drag on text edit
+
+    // Drag note header
+    g.call(d3.drag()
+      .filter(ev => ev.target.tagName !== 'textarea')
+      .on('start', ev => { ev.sourceEvent?.stopPropagation(); })
+      .on('drag', (ev) => {
+        note.x = (note.x||0) + ev.dx;
+        note.y = (note.y||0) + ev.dy;
+        g.attr('transform', `translate(${note.x},${note.y})`);
+        markModified();
+      }));
+  });
+}
+
+function _dgRenderNodes(nodeG, nodes, sim, seqId) {
+  const nodeW = 130, nodeH = 44;
+
+  nodeG.selectAll('.dg-node').data(nodes, d => d.id)
+    .join(enter => {
+      const g = enter.append('g').attr('class','dg-node');
+
+      g.append('rect')
+        .attr('width', nodeW).attr('height', nodeH).attr('rx', 7)
+        .attr('x', -nodeW/2).attr('y', -nodeH/2);
+
+      // Speaker color bar (left edge)
+      g.append('rect')
+        .attr('class','dg-speaker-bar')
+        .attr('width', 4).attr('height', nodeH-4)
+        .attr('x', -nodeW/2+2).attr('y', -nodeH/2+2).attr('rx',2);
+
+      // Type label (top)
+      g.append('text').attr('class','dg-type-lbl')
+        .attr('text-anchor','middle').attr('y', -nodeH/2+10)
+        .attr('font-size','8px').attr('fill','var(--text3)');
+
+      // Speaker name
+      g.append('text').attr('class','dg-speaker-lbl')
+        .attr('x', -nodeW/2+10).attr('y', -2)
+        .attr('font-size','9px').attr('font-weight','600').attr('fill','var(--text2)');
+
+      // Text preview
+      g.append('text').attr('class','dg-text-lbl')
+        .attr('text-anchor','middle').attr('y', nodeH/2-8)
+        .attr('font-size','9px').attr('fill','var(--text)');
+
+      g.append('title');
+
+      g.call(d3.drag()
+        .on('start', (ev, d) => {
+          ev.sourceEvent?.stopPropagation();
+          if (!ev.active) sim.alphaTarget(0.1).restart();
+          d.fx = d.x; d.fy = d.y;
+        })
+        .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+        .on('end', (ev, d) => {
+          if (!ev.active) sim.alphaTarget(0);
+          // Save position but DON'T pin (free movement after drag)
+          d._data.x = d.x; d._data.y = d.y;
+          d.fx = null; d.fy = null;
+          markModified();
+        }));
+
+      g.on('click', (ev, d) => {
+        ev.stopPropagation();
+        if (_gs.connectMode) {
+          _dgHandleConnectClick(d.id, seqId);
+        } else {
+          _dgSelectNode(d.id, seqId);
+        }
+      });
+
+      return g;
+    })
+    .call(sel => _dgUpdateNodeAppearance(sel, seqId));
+}
+
+function _dgUpdateNodeAppearance(sel, seqId) {
+  const nodeW = 130, nodeH = 44;
+  sel.each(function(d) {
+    const nd = d._data;
+    const char = _charById(nd.speaker_id);
+    const vColor = _dlgVersionColor(nd.version||'all');
+    const isEntry = nd.type === 'entry', isExit = nd.type === 'exit';
+    const strokeColor = isEntry ? '#52c97b' : isExit ? '#e05252' : vColor;
+    const isSelected = d.id === _gs.selectedNodeId;
+
+    d3.select(this).select('rect:first-of-type')
+      .attr('fill', char?.color ? char.color+'22' : 'var(--bg2)')
+      .attr('stroke', isSelected ? 'var(--accent)' : strokeColor)
+      .attr('stroke-width', isSelected ? 3 : 2);
+
+    d3.select(this).select('.dg-speaker-bar')
+      .attr('fill', char?.color || '#888');
+
+    d3.select(this).select('.dg-type-lbl')
+      .text(nd.type || 'dialogue');
+
+    d3.select(this).select('.dg-speaker-lbl')
+      .text(char?.name || nd.speaker_id || '—');
+
+    const txt = nd.text_fr || '';
+    d3.select(this).select('.dg-text-lbl')
+      .text(txt.slice(0,20) + (txt.length>20?'…':''));
+
+    d3.select(this).select('title').text(txt || nd.id);
+  });
+}
+
+function _dgSelectNode(nodeId, seqId) {
+  _gs.selectedNodeId = nodeId;
+  const root = d3.select('#dg-nodes');
+  root.selectAll('.dg-node').call(sel => _dgUpdateNodeAppearance(sel, seqId));
+  _dgShowEditPanel(nodeId, seqId);
+}
+
+function _dgShowEditPanel(nodeId, seqId) {
+  const panel = document.getElementById('dlg-node-edit-panel');
+  if (!panel) return;
+
+  if (!nodeId) { panel.style.display = 'none'; return; }
+  const seq  = _seqById(seqId);
+  const node = (seq?.nodes||[]).find(n => n.id === nodeId);
+  if (!node) { panel.style.display = 'none'; return; }
+
+  panel.style.display = 'flex';
+
+  const char = _charById(node.speaker_id);
+  const charOpts  = _dlgChars().map(c => `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const typeOpts  = ['dialogue','canon','event','branch','entry','exit'].map(t =>
+    `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
+  const verOpts   = ['all','duo','trio','quatuor'].map(v =>
+    `<option value="${v}" ${v===(node.version||'all')?'selected':''}>${v}</option>`).join('');
+
+  const outLinks  = (node.links||[]);
+  const linksHtml = outLinks.length ? outLinks.map((lk,i) => {
+    const tNode = (seq.nodes||[]).find(n => n.id === lk.target);
+    return `<div class="dlg-nep-link-row">
+      <span style="width:8px;height:8px;border-radius:50%;background:${_dlgVersionColor(lk.version||'all')};flex-shrink:0;display:inline-block"></span>
+      <span>${esc(tNode?.text_fr?.slice(0,20)||lk.target)}</span>
+      <span class="version-badge ${lk.version||'all'}" style="font-size:9px">${lk.version||'all'}</span>
+      <button class="btn-ghost btn-sm" style="padding:1px 5px;font-size:10px" onclick="_dgDeleteLink('${seqId}','${node.id}',${i})">✕</button>
+    </div>`;
+  }).join('') : '<div style="font-size:11px;color:var(--text3)">Aucun lien sortant</div>';
+
+  panel.innerHTML = `
+    <div class="dlg-nep-header">
+      <span class="dlg-nep-title">Nœud ${esc(node.type||'dialogue')}</span>
+      <button class="btn-ghost btn-sm" style="padding:2px 6px" onclick="_dgClosePanel()">✕</button>
+    </div>
+    <div class="dlg-nep-body">
+      <div>
+        <div class="dlg-nep-label">Type</div>
+        <select class="edit-select" style="width:100%;font-size:12px"
+          onchange="_dgSaveNodeField('${seqId}','${nodeId}','type',this.value);renderDlgNodeGraph('${seqId}')">
+          ${typeOpts}
+        </select>
+      </div>
+      <div>
+        <div class="dlg-nep-label">Version</div>
+        <select class="edit-select" style="width:100%;font-size:12px"
+          onchange="_dgSaveNodeField('${seqId}','${nodeId}','version',this.value);_dgRefreshGraph('${seqId}')">
+          ${verOpts}
+        </select>
+      </div>
+      <div>
+        <div class="dlg-nep-label">Personnage</div>
+        <select class="edit-select" style="width:100%;font-size:12px"
+          onchange="_dgSaveNodeField('${seqId}','${nodeId}','speaker_id',this.value);_dgRefreshGraph('${seqId}')">
+          <option value="">— Aucun —</option>${charOpts}
+        </select>
+      </div>
+      <div>
+        <div class="dlg-nep-label">Texte FR</div>
+        <textarea class="dlg-node-text" style="min-height:60px;font-size:12px"
+          oninput="_dgSaveNodeField('${seqId}','${nodeId}','text_fr',this.value);_dgRefreshGraph('${seqId}')">${esc(node.text_fr||'')}</textarea>
+      </div>
+      <div>
+        <div class="dlg-nep-label">Émotion</div>
+        <input class="edit-input" style="width:100%" value="${esc(node.emotion||'')}"
+          oninput="_dgSaveNodeField('${seqId}','${nodeId}','emotion',this.value)">
+      </div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:1">
+          <div class="dlg-nep-label">Durée ms</div>
+          <input type="number" class="edit-input" style="width:100%" value="${node.rhythm_duration_ms||''}"
+            oninput="_dgSaveNodeField('${seqId}','${nodeId}','rhythm_duration_ms',+this.value)">
+        </div>
+        <div style="flex:1">
+          <div class="dlg-nep-label">Syllabes</div>
+          <input type="number" class="edit-input" style="width:100%" value="${node.rhythm_syllables||''}"
+            oninput="_dgSaveNodeField('${seqId}','${nodeId}','rhythm_syllables',+this.value)">
+        </div>
+      </div>
+      <div>
+        <div class="dlg-nep-label">Clé locale</div>
+        <div style="font-size:10px;font-family:monospace;color:var(--text3)">${esc(node.locale_key||_generateLocaleKey(seqId,nodeId))}</div>
+      </div>
+      <div>
+        <div class="dlg-nep-label" style="margin-bottom:4px">Liens sortants <button class="btn-ghost btn-sm" style="padding:1px 6px;font-size:10px;margin-left:6px" onclick="_dgStartConnect('${seqId}','${nodeId}')">+ Lier</button></div>
+        <div class="dlg-nep-links">${linksHtml}</div>
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+        <button class="btn-danger btn-sm" style="width:100%" onclick="_dgDeleteNode('${seqId}','${nodeId}')">Supprimer le nœud</button>
+      </div>
+    </div>`;
+}
+
+function _dgClosePanel() {
+  _gs.selectedNodeId = null;
+  const panel = document.getElementById('dlg-node-edit-panel');
+  if (panel) panel.style.display = 'none';
+  d3.select('#dg-nodes').selectAll('.dg-node').call(sel => _dgUpdateNodeAppearance(sel, _gs.seqId));
+}
+
+function _dgSaveNodeField(seqId, nodeId, field, value) {
+  const seq = _seqById(seqId);
+  const node = (seq?.nodes||[]).find(n => n.id === nodeId);
+  if (!node) return;
+  node[field] = value;
+  markModified();
+}
+
+function _dgRefreshGraph(seqId) {
+  const nodeG = d3.select('#dg-nodes');
+  nodeG.selectAll('.dg-node').call(sel => _dgUpdateNodeAppearance(sel, seqId));
+}
+
+function _dgAddNodeCenter() {
+  const seq = _seqById(_gs.seqId);
+  if (!seq) return;
+  const wrap = document.getElementById('dlg-graph-canvas-wrap');
+  const W = wrap?.clientWidth || 800, H = wrap?.clientHeight || 500;
+  const t = _gs.transform || d3.zoomIdentity;
+  const cx = (W/2 - t.x) / t.k;
+  const cy = (H/2 - t.y) / t.k;
+  _dgAddNodeAt(_gs.seqId, cx, cy);
+}
+
+function _dgAddNodeAt(seqId, x, y) {
+  const seq = _seqById(seqId);
+  if (!seq) return;
+  if (!seq.nodes) seq.nodes = [];
+  const id = 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  const node = {
+    id, type: 'dialogue', version: 'all',
+    speaker_id: '', is_canon: false,
+    locale_key: _generateLocaleKey(seqId, id),
+    text_fr: '', emotion: '',
+    rhythm_duration_ms: 0, rhythm_syllables: 0,
+    links: [], conditions: {}, x, y
+  };
+  seq.nodes.push(node);
+  markModified();
+  renderDlgNodeGraph(seqId);
+  setTimeout(() => _dgSelectNode(id, seqId), 50);
+}
+
+function _dgDeleteNode(seqId, nodeId) {
+  if (!confirm('Supprimer ce nœud ?')) return;
+  const seq = _seqById(seqId);
+  if (!seq) return;
+  seq.nodes = (seq.nodes||[]).filter(n => n.id !== nodeId);
+  // Remove links targeting this node
+  (seq.nodes||[]).forEach(n => {
+    n.links = (n.links||[]).filter(lk => lk.target !== nodeId);
+  });
+  markModified();
+  renderDlgNodeGraph(seqId);
+}
+
+function _dgDeleteLink(seqId, nodeId, linkIdx) {
+  const seq  = _seqById(seqId);
+  const node = (seq?.nodes||[]).find(n => n.id === nodeId);
+  if (!node) return;
+  node.links = (node.links||[]).filter((_, i) => i !== linkIdx);
+  markModified();
+  renderDlgNodeGraph(seqId);
+  setTimeout(() => _dgShowEditPanel(nodeId, seqId), 50);
+}
+
+function _dgToggleConnect() {
+  _gs.connectMode = !_gs.connectMode;
+  _gs.connectSource = null;
+  const btn = document.getElementById('dg-btn-connect');
+  const svg = document.getElementById('dlg-graph-svg');
+  if (btn) btn.style.background = _gs.connectMode ? 'var(--accent)' : '';
+  if (btn) btn.style.color = _gs.connectMode ? '#fff' : '';
+  if (svg) svg.classList.toggle('connect-mode', _gs.connectMode);
+  if (_gs.connectMode) toast('Cliquez sur le nœud source puis le nœud cible', 'info');
+}
+
+function _dgStartConnect(seqId, sourceId) {
+  _gs.connectMode = true;
+  _gs.connectSource = sourceId;
+  _gs.seqId = seqId;
+  const btn = document.getElementById('dg-btn-connect');
+  const svg = document.getElementById('dlg-graph-svg');
+  if (btn) { btn.style.background='var(--accent)'; btn.style.color='#fff'; }
+  if (svg) svg.classList.add('connect-mode');
+  toast('Cliquez sur le nœud cible', 'info');
+}
+
+function _dgHandleConnectClick(nodeId, seqId) {
+  if (!_gs.connectSource) {
+    _gs.connectSource = nodeId;
+    toast('Source sélectionnée. Cliquez maintenant sur le nœud cible.', 'info');
+    return;
+  }
+  if (nodeId === _gs.connectSource) {
+    _gs.connectSource = null;
+    toast('Même nœud — connexion annulée');
+    return;
+  }
+  // Ask for version
+  const ver = prompt('Version du lien (all/duo/trio/quatuor) :', 'all');
+  if (ver === null) { _gs.connectSource = null; return; }
+  const version = ['all','duo','trio','quatuor'].includes(ver) ? ver : 'all';
+
+  const seq  = _seqById(seqId);
+  const srcNode = (seq?.nodes||[]).find(n => n.id === _gs.connectSource);
+  if (srcNode) {
+    if (!srcNode.links) srcNode.links = [];
+    srcNode.links.push({ target: nodeId, version });
+    markModified();
+  }
+
+  _gs.connectSource = null;
+  _gs.connectMode = false;
+  const btn = document.getElementById('dg-btn-connect');
+  const svg = document.getElementById('dlg-graph-svg');
+  if (btn) { btn.style.background=''; btn.style.color=''; }
+  if (svg) svg.classList.remove('connect-mode');
+  renderDlgNodeGraph(seqId);
+  toast('Lien créé', 'success');
+}
+
+function _dgDeleteSelected() {
+  if (_gs.selectedNodeId) _dgDeleteNode(_gs.seqId, _gs.selectedNodeId);
+}
+
+function _dgAddNote() {
+  const seq = _seqById(_gs.seqId);
+  if (!seq) return;
+  if (!seq.canvas_notes) seq.canvas_notes = [];
+  const wrap = document.getElementById('dlg-graph-canvas-wrap');
+  const W = wrap?.clientWidth || 800, H = wrap?.clientHeight || 500;
+  const t = _gs.transform || d3.zoomIdentity;
+  const id = 'note_' + Date.now();
+  seq.canvas_notes.push({ id, text: '', x: (W/2-t.x)/t.k, y: (H/2-t.y)/t.k, color: '#f6e05e' });
+  markModified();
+  // Re-render just the notes layer
+  const noteG = d3.select('#dg-notes');
+  _dgRenderNotes(noteG, seq, _gs.seqId);
+}
+
+function _dgDeleteNote(seqId, noteId) {
+  const seq = _seqById(seqId);
+  if (!seq) return;
+  seq.canvas_notes = (seq.canvas_notes||[]).filter(n => n.id !== noteId);
+  markModified();
+  const noteG = d3.select('#dg-notes');
+  _dgRenderNotes(noteG, seq, seqId);
 }
 
 // ── Sequence CRUD ─────────────────────────────────────────────────
 
 function addSequence() {
+  // Populate scene dropdown in modal
+  const sel = document.getElementById('scm-scene');
+  if (sel) {
+    sel.innerHTML = '<option value="">— Aucune scène —</option>';
+    _dlgScenes().forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = s.num + ' — ' + s.title;
+      sel.appendChild(o);
+    });
+  }
+  const labelEl = document.getElementById('scm-label');
+  if (labelEl) labelEl.value = '';
+  document.getElementById('seq-create-modal-bg').style.display = 'flex';
+  setTimeout(() => labelEl?.focus(), 50);
+}
+
+function _closeCreateSeqModal() {
+  document.getElementById('seq-create-modal-bg').style.display = 'none';
+}
+
+function confirmCreateSeq() {
+  const label   = document.getElementById('scm-label')?.value.trim() || 'Nouvelle séquence';
+  const sceneId = document.getElementById('scm-scene')?.value || '';
+  const act     = parseInt(document.getElementById('scm-act')?.value || '1');
   const id = 'seq_' + Date.now();
   const seq = {
-    id,
-    scene_id: '',
-    label: 'Nouvelle séquence',
-    act: 1,
-    version: 'duo',
-    priority_score: 0,
+    id, scene_id: sceneId, label, act,
     conditions: { players_present: [], player_count_min: 2, player_count_max: 4, scene_id: '' },
-    nodes: [],
-    notes: ''
+    nodes: [], canvas_notes: [], notes: ''
   };
   state.data.dialogue_sequences.push(seq);
+  // Link to scene
+  if (sceneId) {
+    const scene = (state.data.scenes||[]).find(s => s.id === sceneId);
+    if (scene) {
+      if (!scene.dialogue_sequences) scene.dialogue_sequences = [];
+      if (!scene.dialogue_sequences.includes(id)) scene.dialogue_sequences.push(id);
+    }
+  }
   state.selectedSeqId = id;
   markModified();
-  dlgSwitchView('editor');
+  _closeCreateSeqModal();
+  dlgSwitchView('graph');
   toast('Séquence créée', 'success');
 }
 
 function deleteSequence(seqId) {
   if (!confirm('Supprimer cette séquence et tous ses nœuds ?')) return;
   state.data.dialogue_sequences = state.data.dialogue_sequences.filter(s => s.id !== seqId);
-  // Also remove from scene.dialogue_sequences refs
   (state.data.scenes || []).forEach(scene => {
     if (scene.dialogue_sequences) scene.dialogue_sequences = scene.dialogue_sequences.filter(id => id !== seqId);
   });
@@ -3631,25 +4181,22 @@ function deleteSequence(seqId) {
 function editSequenceMeta(seqId) {
   const seq = _seqById(seqId);
   if (!seq) return;
-  const label    = prompt('Nom de la séquence :', seq.label || '');
+  const label = prompt('Nom de la séquence :', seq.label || '');
   if (label === null) return;
   seq.label = label;
 
-  const sceneId  = prompt('ID de la scène liée :', seq.scene_id || '');
+  const scenes = _dlgScenes();
+  const sceneList = scenes.map(s => `${s.num} — ${s.title} (${s.id})`).join('\n');
+  const sceneId = prompt(`ID de la scène liée :\n${sceneList}`, seq.scene_id || '');
   if (sceneId !== null) seq.scene_id = sceneId;
 
-  const version  = prompt('Version (duo/trio/quatuor) :', seq.version || 'duo');
-  if (version !== null) seq.version = version;
-
-  const score = prompt('Score de priorité :', String(seq.priority_score || 0));
-  if (score !== null) seq.priority_score = parseInt(score) || 0;
-
   markModified();
-  renderDlgEditor(seqId);
+  if (state.dlgView === 'editor') renderDlgEditor(seqId);
+  else if (state.dlgView === 'graph') renderDlgNodeGraph(seqId);
   toast('Séquence mise à jour', 'success');
 }
 
-// ── Node CRUD ─────────────────────────────────────────────────────
+// ── Node CRUD (list editor) ───────────────────────────────────────
 
 function _genNodeId() { return 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000); }
 
@@ -3657,32 +4204,19 @@ function addNode(seqId, afterNodeId) {
   const seq = _seqById(seqId);
   if (!seq) return;
   if (!seq.nodes) seq.nodes = [];
-
   const id = _genNodeId();
   const newNode = {
-    id,
-    type: 'dialogue',
-    speaker_id: '',
-    is_canon: false,
+    id, type: 'dialogue', version: 'all', speaker_id: '', is_canon: false,
     locale_key: _generateLocaleKey(seqId, id),
-    text_fr: '',
-    emotion: '',
-    rhythm_duration_ms: 0,
-    rhythm_syllables: 0,
-    next_node: '',
-    conditions: {}
+    text_fr: '', emotion: '', rhythm_duration_ms: 0, rhythm_syllables: 0,
+    links: [], conditions: {}, x: 0, y: 0
   };
-
   if (afterNodeId === null) {
     seq.nodes.unshift(newNode);
   } else {
     const idx = seq.nodes.findIndex(n => n.id === afterNodeId);
     seq.nodes.splice(idx + 1, 0, newNode);
   }
-
-  // Update next_node chain
-  _rebuildNextNodes(seq);
-
   markModified();
   renderDlgEditor(seqId);
 }
@@ -3691,7 +4225,7 @@ function deleteNode(seqId, nodeId) {
   const seq = _seqById(seqId);
   if (!seq) return;
   seq.nodes = (seq.nodes || []).filter(n => n.id !== nodeId);
-  _rebuildNextNodes(seq);
+  (seq.nodes||[]).forEach(n => { n.links = (n.links||[]).filter(lk => lk.target !== nodeId); });
   markModified();
   renderDlgEditor(seqId);
 }
@@ -3701,19 +4235,11 @@ function duplicateNode(seqId, nodeId) {
   if (!seq) return;
   const idx = (seq.nodes || []).findIndex(n => n.id === nodeId);
   if (idx < 0) return;
-  const orig = seq.nodes[idx];
   const id   = _genNodeId();
-  const copy = { ...orig, id, locale_key: _generateLocaleKey(seqId, id) };
+  const copy = { ...seq.nodes[idx], id, locale_key: _generateLocaleKey(seqId, id), links: [] };
   seq.nodes.splice(idx + 1, 0, copy);
-  _rebuildNextNodes(seq);
   markModified();
   renderDlgEditor(seqId);
-}
-
-function _rebuildNextNodes(seq) {
-  for (let i = 0; i < seq.nodes.length - 1; i++)
-    seq.nodes[i].next_node = seq.nodes[i+1].id;
-  if (seq.nodes.length > 0) seq.nodes[seq.nodes.length - 1].next_node = '';
 }
 
 function saveNodeField(seqId, nodeId, field, value) {
@@ -3732,16 +4258,15 @@ function exportDialogueCSV() {
   _dlgSeqs().forEach(seq => {
     const scene = _dlgScenes().find(s => s.id === seq.scene_id);
     (seq.nodes || []).forEach(node => {
+      if (node.type === 'event' || node.type === 'branch') return;
       const char = _charById(node.speaker_id);
       const key  = node.locale_key || _generateLocaleKey(seq.id, node.id);
       rows.push([
-        key,
-        scene?.num || seq.scene_id || '',
+        key, scene?.num || seq.scene_id || '',
         seq.label || seq.id,
-        seq.version || '',
+        node.version || 'all',
         char?.name || node.speaker_id || '',
-        node.text_fr || '',
-        node.emotion || '',
+        node.text_fr || '', node.emotion || '',
         node.is_canon ? 'true' : 'false'
       ]);
     });
