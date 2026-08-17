@@ -22,11 +22,12 @@
   --success:   #52c97b;
   --warning:   #e0a052;
 
-  --c-poissons:  #4db8ff;
-  --c-villageois:#ffb347;
-  --c-fbi:       #b47aff;
-  --c-mixte:     #ff6fa8;
-  --c-casting:   #7a8099;
+  --c-ch1: #4db8ff;
+  --c-ch2: #ffb347;
+  --c-ch3: #b47aff;
+  --c-ch4: #52c97b;
+  --c-ch5: #ff6fa8;
+  --c-intro: #7a8099;
 
   --radius:    6px;
   --panel-w:   420px;
@@ -118,11 +119,12 @@ nav {
 }
 .filter-chip:hover { border-color: var(--text3); color: var(--text); }
 .filter-chip.active { color: #fff; border-color: transparent; }
-.filter-chip.group-poissons.active  { background: var(--c-poissons); }
-.filter-chip.group-villageois.active{ background: var(--c-villageois); color: #111; }
-.filter-chip.group-fbi.active       { background: var(--c-fbi); }
-.filter-chip.group-mixte.active     { background: var(--c-mixte); }
-.filter-chip.group-casting.active   { background: var(--c-casting); }
+.filter-chip.act-intro.active { background: var(--c-intro); }
+.filter-chip.act-ch1.active   { background: var(--c-ch1); }
+.filter-chip.act-ch2.active   { background: var(--c-ch2); color: #111; }
+.filter-chip.act-ch3.active   { background: var(--c-ch3); }
+.filter-chip.act-ch4.active   { background: var(--c-ch4); }
+.filter-chip.act-ch5.active   { background: var(--c-ch5); }
 .filter-chip.filter-active.active   { background: var(--accent); }
 .filter-sep { width: 1px; height: 18px; background: var(--border); }
 .search-input {
@@ -155,11 +157,12 @@ td { padding: 8px 12px; vertical-align: top; }
   display: inline-block; padding: 2px 7px; border-radius: 10px;
   font-size: 11px; font-weight: 600; white-space: nowrap;
 }
-.badge-poissons  { background: color-mix(in srgb,var(--c-poissons) 18%,transparent);  color:var(--c-poissons); }
-.badge-villageois{ background: color-mix(in srgb,var(--c-villageois) 18%,transparent); color:var(--c-villageois); }
-.badge-fbi       { background: color-mix(in srgb,var(--c-fbi) 18%,transparent);       color:var(--c-fbi); }
-.badge-mixte     { background: color-mix(in srgb,var(--c-mixte) 18%,transparent);     color:var(--c-mixte); }
-.badge-casting   { background: color-mix(in srgb,var(--c-casting) 18%,transparent);   color:var(--c-casting); }
+.badge-ch1   { background: color-mix(in srgb,var(--c-ch1) 18%,transparent);   color:var(--c-ch1); }
+.badge-ch2   { background: color-mix(in srgb,var(--c-ch2) 18%,transparent);   color:var(--c-ch2); }
+.badge-ch3   { background: color-mix(in srgb,var(--c-ch3) 18%,transparent);   color:var(--c-ch3); }
+.badge-ch4   { background: color-mix(in srgb,var(--c-ch4) 18%,transparent);   color:var(--c-ch4); }
+.badge-ch5   { background: color-mix(in srgb,var(--c-ch5) 18%,transparent);   color:var(--c-ch5); }
+.badge-intro { background: color-mix(in srgb,var(--c-intro) 18%,transparent); color:var(--c-intro); }
 .badge-act  { background: var(--bg3); color: var(--text2); }
 .badge-type { background: var(--bg3); color: var(--text2); }
 .badge-bonus { background: color-mix(in srgb,var(--warning) 18%,transparent); color:var(--warning); }
@@ -363,9 +366,12 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .scenario-act-synopses { display: flex; gap: 8px; flex: 2; }
 .act-synopsis-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .act-synopsis-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-.act-synopsis-label.act1-label { color: var(--c-poissons); }
-.act-synopsis-label.act2-label { color: var(--c-villageois); }
-.act-synopsis-label.act3-label { color: var(--c-fbi); }
+.act-synopsis-label.act1-label { color: var(--c-intro); }
+.act-synopsis-label.act2-label { color: var(--c-ch1); }
+.act-synopsis-label.act3-label { color: var(--c-ch2); }
+.act-synopsis-label.act4-label { color: var(--c-ch3); }
+.act-synopsis-label.act5-label { color: var(--c-ch4); }
+.act-synopsis-label.act6-label { color: var(--c-ch5); }
 .act-synopsis-field textarea { flex: 1; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--border);
   background: var(--bg3); color: var(--text); font-size: 12px; font-family: inherit;
   resize: none; height: 46px; line-height: 1.5; }
@@ -393,9 +399,12 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
 }
-.tl-act-hdr-cell.act1 { color: var(--c-poissons); background: color-mix(in srgb,var(--c-poissons) 7%,transparent); }
-.tl-act-hdr-cell.act2 { color: var(--c-villageois); background: color-mix(in srgb,var(--c-villageois) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-villageois) 30%,transparent); }
-.tl-act-hdr-cell.act3 { color: var(--c-fbi); background: color-mix(in srgb,var(--c-fbi) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-fbi) 30%,transparent); }
+.tl-act-hdr-cell.act1 { color: var(--c-intro); background: color-mix(in srgb,var(--c-intro) 7%,transparent); }
+.tl-act-hdr-cell.act2 { color: var(--c-ch1); background: color-mix(in srgb,var(--c-ch1) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch1) 30%,transparent); }
+.tl-act-hdr-cell.act3 { color: var(--c-ch2); background: color-mix(in srgb,var(--c-ch2) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch2) 30%,transparent); }
+.tl-act-hdr-cell.act4 { color: var(--c-ch3); background: color-mix(in srgb,var(--c-ch3) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch3) 30%,transparent); }
+.tl-act-hdr-cell.act5 { color: var(--c-ch4); background: color-mix(in srgb,var(--c-ch4) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch4) 30%,transparent); }
+.tl-act-hdr-cell.act6 { color: var(--c-ch5); background: color-mix(in srgb,var(--c-ch5) 7%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch5) 30%,transparent); }
 
 /* Track rows */
 .tl-track-row { display: flex; border-bottom: 1px solid var(--border); }
@@ -410,11 +419,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .tl-track-name {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
 }
-.tl-track-label.track-casting    .tl-track-name { color: var(--c-casting); }
-.tl-track-label.track-poissons   .tl-track-name { color: var(--c-poissons); }
-.tl-track-label.track-villageois .tl-track-name { color: var(--c-villageois); }
-.tl-track-label.track-fbi        .tl-track-name { color: var(--c-fbi); }
-.tl-track-label.track-mixte      .tl-track-name { color: var(--c-mixte); }
+.tl-track-label.track-scenes .tl-track-name { color: var(--accent); }
 .tl-track-label.track-notes      .tl-track-name { color: var(--accent); }
 .tl-track-count { font-size: 10px; color: var(--text3); }
 
@@ -431,11 +436,12 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .tl-act-zone {
   position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 0;
 }
-.tl-act-zone.act1 { background: color-mix(in srgb,var(--c-poissons) 4%,transparent); }
-.tl-act-zone.act2 { background: color-mix(in srgb,var(--c-villageois) 4%,transparent);
-  border-left: 2px solid color-mix(in srgb,var(--c-villageois) 20%,transparent); }
-.tl-act-zone.act3 { background: color-mix(in srgb,var(--c-fbi) 4%,transparent);
-  border-left: 2px solid color-mix(in srgb,var(--c-fbi) 20%,transparent); }
+.tl-act-zone.act1 { background: color-mix(in srgb,var(--c-intro) 4%,transparent); }
+.tl-act-zone.act2 { background: color-mix(in srgb,var(--c-ch1) 4%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch1) 20%,transparent); }
+.tl-act-zone.act3 { background: color-mix(in srgb,var(--c-ch2) 4%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch2) 20%,transparent); }
+.tl-act-zone.act4 { background: color-mix(in srgb,var(--c-ch3) 4%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch3) 20%,transparent); }
+.tl-act-zone.act5 { background: color-mix(in srgb,var(--c-ch4) 4%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch4) 20%,transparent); }
+.tl-act-zone.act6 { background: color-mix(in srgb,var(--c-ch5) 4%,transparent); border-left: 2px solid color-mix(in srgb,var(--c-ch5) 20%,transparent); }
 
 /* Connector lines between cards */
 .tl-connector {
@@ -781,18 +787,15 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
     <div class="filters" id="scenes-filters">
       <input class="search-input" id="scene-search" placeholder="Rechercher…" oninput="renderScenesTable()">
       <div class="filter-sep"></div>
-      <button class="filter-chip group-casting active" data-filter="group" data-value="CASTING" onclick="toggleFilter(this)">Casting</button>
-      <button class="filter-chip group-poissons active" data-filter="group" data-value="POISSONS" onclick="toggleFilter(this)">Poissons</button>
-      <button class="filter-chip group-villageois active" data-filter="group" data-value="VILLAGEOIS" onclick="toggleFilter(this)">Villageois</button>
-      <button class="filter-chip group-fbi active" data-filter="group" data-value="FBI" onclick="toggleFilter(this)">FBI</button>
-      <button class="filter-chip group-mixte active" data-filter="group" data-value="MIXTE" onclick="toggleFilter(this)">Mixte</button>
-      <div class="filter-sep"></div>
       <button class="filter-chip filter-active" data-filter="branch" data-value="main" onclick="toggleFilter(this)">Main</button>
       <button class="filter-chip filter-active" data-filter="branch" data-value="bonus" onclick="toggleFilter(this)">Bonus</button>
       <div class="filter-sep"></div>
-      <button class="filter-chip filter-active" data-filter="act" data-value="1" onclick="toggleFilter(this)">Acte 1</button>
-      <button class="filter-chip filter-active" data-filter="act" data-value="2" onclick="toggleFilter(this)">Acte 2</button>
-      <button class="filter-chip filter-active" data-filter="act" data-value="3" onclick="toggleFilter(this)">Acte 3</button>
+      <button class="filter-chip act-intro filter-active" data-filter="act" data-value="1" onclick="toggleFilter(this)">Intro</button>
+      <button class="filter-chip act-ch1 filter-active" data-filter="act" data-value="2" onclick="toggleFilter(this)">Ch. 1</button>
+      <button class="filter-chip act-ch2 filter-active" data-filter="act" data-value="3" onclick="toggleFilter(this)">Ch. 2</button>
+      <button class="filter-chip act-ch3 filter-active" data-filter="act" data-value="4" onclick="toggleFilter(this)">Ch. 3</button>
+      <button class="filter-chip act-ch4 filter-active" data-filter="act" data-value="5" onclick="toggleFilter(this)">Ch. 4</button>
+      <button class="filter-chip act-ch5 filter-active" data-filter="act" data-value="6" onclick="toggleFilter(this)">Ch. 5</button>
       <span class="filter-count" id="scenes-count"></span>
     </div>
     <div class="table-wrap">
@@ -801,9 +804,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
           <tr>
             <th>Num</th>
             <th>Titre</th>
-            <th>Groupe</th>
-            <th>Acte</th>
-            <th>Joueurs</th>
+            <th>Chapitre</th>
             <th>Type</th>
             <th>Flags</th>
             <th>Conditions</th>
@@ -879,11 +880,12 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
         </div>
       </div>
       <div class="graph-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-casting)"></div>Casting</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-poissons)"></div>Poissons</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-villageois)"></div>Villageois</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-fbi)"></div>FBI</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-mixte)"></div>Mixte</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-intro)"></div>Intro</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch1)"></div>Ch. 1</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch2)"></div>Ch. 2</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch3)"></div>Ch. 3</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch4)"></div>Ch. 4</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch5)"></div>Ch. 5</div>
       </div>
       <div class="graph-controls">
         <button class="btn-ghost btn-sm" onclick="graphZoom(1.25)">+</button>
@@ -897,10 +899,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   <div class="tab-content" id="tab-characters">
     <div class="filters">
       <input class="search-input" id="char-search" placeholder="Rechercher…" oninput="renderCharactersTable()">
-      <div class="filter-sep"></div>
-      <button class="filter-chip group-poissons active" data-filter="cgroup" data-value="POISSONS" onclick="toggleFilter(this)">Poissons</button>
-      <button class="filter-chip group-villageois active" data-filter="cgroup" data-value="VILLAGEOIS" onclick="toggleFilter(this)">Villageois</button>
-      <button class="filter-chip group-fbi active" data-filter="cgroup" data-value="FBI" onclick="toggleFilter(this)">FBI</button>
       <span class="filter-count" id="chars-count"></span>
     </div>
     <div class="table-wrap" >
@@ -909,9 +907,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
           <tr>
             <th>Nom</th>
             <th>Acteur</th>
-            <th>Groupe</th>
             <th>Rôle</th>
-            <th>Capacités</th>
             <th>Scènes jouées</th>
           </tr>
         </thead>
@@ -939,10 +935,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   <div class="tab-content" id="tab-abilities">
     <div class="filters">
       <input class="search-input" id="abil-search" placeholder="Rechercher…" oninput="renderAbilitiesTable()">
-      <div class="filter-sep"></div>
-      <button class="filter-chip group-poissons active" data-filter="agroup" data-value="POISSONS" onclick="toggleFilter(this)">Poissons</button>
-      <button class="filter-chip group-villageois active" data-filter="agroup" data-value="VILLAGEOIS" onclick="toggleFilter(this)">Villageois</button>
-      <button class="filter-chip group-fbi active" data-filter="agroup" data-value="FBI" onclick="toggleFilter(this)">FBI</button>
       <span class="filter-count" id="abils-count"></span>
     </div>
     <div class="table-wrap" >
@@ -950,11 +942,9 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
         <thead>
           <tr>
             <th>Nom</th>
-            <th>Groupe</th>
             <th>Personnages</th>
             <th>Scène déblocage</th>
             <th>Partagée</th>
-            <th>Variantes</th>
           </tr>
         </thead>
         <tbody id="abils-tbody"></tbody>
@@ -983,18 +973,30 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
       <div class="scenario-topbar">
         <label>Synopsis</label>
         <textarea id="scenario-synopsis" placeholder="Vue d'ensemble de l'histoire, thèmes, intentions narratives…" oninput="saveScenarioSynopsis()"></textarea>
-        <div class="scenario-act-synopses">
+        <div class="scenario-act-synopses" style="flex-wrap:wrap;gap:6px">
           <div class="act-synopsis-field">
-            <label class="act-synopsis-label act1-label">Acte 1</label>
-            <textarea id="scenario-synopsis-act1" placeholder="Acte 1 – Le calme avant la tempête…" oninput="saveActSynopsis(1)"></textarea>
+            <label class="act-synopsis-label act1-label">Intro</label>
+            <textarea id="scenario-synopsis-act1" placeholder="Introduction…" oninput="saveActSynopsis(1)"></textarea>
           </div>
           <div class="act-synopsis-field">
-            <label class="act-synopsis-label act2-label">Acte 2</label>
-            <textarea id="scenario-synopsis-act2" placeholder="Acte 2 – Des poissons partout…" oninput="saveActSynopsis(2)"></textarea>
+            <label class="act-synopsis-label act2-label">Chapitre 1</label>
+            <textarea id="scenario-synopsis-act2" placeholder="Chapitre 1…" oninput="saveActSynopsis(2)"></textarea>
           </div>
           <div class="act-synopsis-field">
-            <label class="act-synopsis-label act3-label">Acte 3</label>
-            <textarea id="scenario-synopsis-act3" placeholder="Acte 3 – Les étoiles de mer…" oninput="saveActSynopsis(3)"></textarea>
+            <label class="act-synopsis-label act3-label">Chapitre 2</label>
+            <textarea id="scenario-synopsis-act3" placeholder="Chapitre 2…" oninput="saveActSynopsis(3)"></textarea>
+          </div>
+          <div class="act-synopsis-field">
+            <label class="act-synopsis-label act4-label">Chapitre 3</label>
+            <textarea id="scenario-synopsis-act4" placeholder="Chapitre 3…" oninput="saveActSynopsis(4)"></textarea>
+          </div>
+          <div class="act-synopsis-field">
+            <label class="act-synopsis-label act5-label">Chapitre 4</label>
+            <textarea id="scenario-synopsis-act5" placeholder="Chapitre 4…" oninput="saveActSynopsis(5)"></textarea>
+          </div>
+          <div class="act-synopsis-field">
+            <label class="act-synopsis-label act6-label">Chapitre 5</label>
+            <textarea id="scenario-synopsis-act6" placeholder="Chapitre 5…" oninput="saveActSynopsis(6)"></textarea>
           </div>
         </div>
       </div>
@@ -1075,11 +1077,14 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
       </select>
     </div>
     <div>
-      <div class="dlg-nep-label">Acte</div>
+      <div class="dlg-nep-label">Chapitre</div>
       <select class="edit-select" id="scm-act" style="width:100%">
-        <option value="1">Acte 1</option>
-        <option value="2">Acte 2</option>
-        <option value="3">Acte 3</option>
+        <option value="1">Intro</option>
+        <option value="2">Chapitre 1</option>
+        <option value="3">Chapitre 2</option>
+        <option value="4">Chapitre 3</option>
+        <option value="5">Chapitre 4</option>
+        <option value="6">Chapitre 5</option>
       </select>
     </div>
     <div class="modal-actions">
@@ -1146,12 +1151,8 @@ let state = {
   dlgView: 'list',
   editBuffer: {},
   filters: {
-    group:    ['CASTING','POISSONS','VILLAGEOIS','FBI','MIXTE'],
-    branch:   ['main','bonus'],
-    act:      ['1','2','3'],
-    ggroup:   ['CASTING','POISSONS','VILLAGEOIS','FBI','MIXTE'],
-    cgroup:   ['POISSONS','VILLAGEOIS','FBI'],
-    agroup:   ['POISSONS','VILLAGEOIS','FBI'],
+    branch: ['main','bonus'],
+    act:    ['1','2','3','4','5','6'],
   }
 };
 
@@ -1309,7 +1310,6 @@ function getFilteredScenes() {
   if (!state.data) return [];
   const q = (document.getElementById('scene-search')?.value || '').toLowerCase();
   return state.data.scenes.filter(s => {
-    if (!state.filters.group.includes(s.group)) return false;
     if (!state.filters.branch.includes(s.branch)) return false;
     if (!state.filters.act.includes(String(s.act))) return false;
     if (q && !s.title.toLowerCase().includes(q) && !s.num.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) return false;
@@ -1328,10 +1328,7 @@ function renderScenesTable() {
     tr.innerHTML = `
       <td class="td-num">${esc(s.num)}</td>
       <td class="td-title">${esc(s.title)}<small>${esc(s.description)}</small></td>
-      <td><span class="badge badge-${s.group.toLowerCase()}">${esc(s.group)}</span></td>
-      <td><span class="dev-badge ${s.dev_status||'todo'}">${{todo:'À faire',squelette:'Squelette',in_progress:'En cours',a_tester:'À tester',done:'✓ Fait'}[s.dev_status||'todo']||'À faire'}</span></td>
-      <td><span class="badge badge-act">Acte ${s.act}</span></td>
-      <td class="players-label">${s.players_min}–${s.players_max}J</td>
+      <td><span class="badge badge-${ACT_CSS_KEY[s.act]||'act'}">${ACT_LABELS[s.act]||'—'}</span></td>
       <td><span class="badge badge-type">${esc(s.type)}</span></td>
       <td class="flag-row">
         ${s.bonus  ? '<span class="badge badge-bonus">bonus</span>' : ''}
@@ -1379,16 +1376,11 @@ function openScenePanel(id) {
     </div>
     ${field('Titre', 'edit-input', 'title', scene.title)}
     <div class="field-row">
-      ${fieldSelect('Groupe', 'group', scene.group, ['CASTING','POISSONS','VILLAGEOIS','FBI','MIXTE'])}
+      ${fieldSelect('Chapitre', 'act', scene.act, [[1,'Intro'],[2,'Chapitre 1'],[3,'Chapitre 2'],[4,'Chapitre 3'],[5,'Chapitre 4'],[6,'Chapitre 5']])}
       ${fieldSelect('Branche', 'branch', scene.branch, ['main','bonus'])}
     </div>
     <div class="field-row">
-      ${fieldSelect('Acte', 'act', scene.act, [1,2,3])}
       ${fieldSelect('Type', 'type', scene.type, ['intro','exploration','combat','boss','révélation','fuite','coopération'])}
-    </div>
-    <div class="field-row">
-      ${field('Joueurs min', 'edit-input', 'players_min', scene.players_min, 'number')}
-      ${field('Joueurs max', 'edit-input', 'players_max', scene.players_max, 'number')}
     </div>
     <div class="field-group">
       <div class="field-label">Conditions de déblocage</div>
@@ -1434,18 +1426,6 @@ function openScenePanel(id) {
       </div>
     </div>
     <div class="field-group">
-      <div class="field-label">Composition par nb joueurs</div>
-      <div class="comp-grid">
-        ${['duo','trio','quatuor'].map(v => {
-          const vals = scene.composition?.[v] || [];
-          return `<div class="comp-row">
-            <span class="comp-label">${v}</span>
-            ${fieldTagsInline('comp-'+v+'-tags', 'comp-'+v+'-input', vals, 'characters')}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>
-    <div class="field-group">
       <div class="field-label" style="display:flex;align-items:center;gap:8px">
         Séquences de dialogue
         <span class="badge badge-act">${(scene.dialogue_sequences||[]).length}</span>
@@ -1474,7 +1454,10 @@ function field(label, cls, name, val, type='text', readonly=false) {
 }
 
 function fieldSelect(label, name, val, options) {
-  const opts = options.map(o=>`<option value="${o}" ${String(o)===String(val)?'selected':''}>${o}</option>`).join('');
+  const opts = options.map(o => {
+    const [v, lbl] = Array.isArray(o) ? o : [o, o];
+    return `<option value="${v}" ${String(v)===String(val)?'selected':''}>${lbl}</option>`;
+  }).join('');
   return `<div class="field-group"><div class="field-label">${label}</div><select class="edit-select" data-field="${name}">${opts}</select></div>`;
 }
 
@@ -1660,10 +1643,7 @@ function saveScene() {
   // Dev status
   s.dev_status = document.querySelector('input[name="dev_status"]:checked')?.value || 'todo';
 
-  // act as int
   s.act = Number(s.act);
-  s.players_min = Number(s.players_min);
-  s.players_max = Number(s.players_max);
 
   // Conditions
   const condType = document.getElementById('cond-type').value;
@@ -1674,15 +1654,7 @@ function saveScene() {
     s.unlock_conditions = { [condType]: condIds };
   }
 
-  // Roles
   s.roles_involved = getTagValues('roles-tags');
-
-  // Composition
-  s.composition = {
-    duo:     getTagValues('comp-duo-tags'),
-    trio:    getTagValues('comp-trio-tags'),
-    quatuor: getTagValues('comp-quatuor-tags'),
-  };
 
   markModified();
   renderScenesTable();
@@ -1704,10 +1676,9 @@ function deleteScene() {
 function addScene() {
   const id = 'scene-' + Date.now();
   const newScene = {
-    id, num: 'X-X-00', title: 'Nouvelle scène', group: 'POISSONS', branch: 'main',
-    players_min: 2, players_max: 4, type: 'exploration', unlock_conditions: {},
-    roles_involved: [], composition: { duo:[], trio:[], quatuor:[] },
-    dialogue_sequences: [],
+    id, num: 'X-X-00', title: 'Nouvelle scène', branch: 'main',
+    type: 'exploration', unlock_conditions: {},
+    roles_involved: [], dialogue_sequences: [],
     description: '', design_notes: '', references: '',
     climax: false, final: false, bonus: false, act: 1, dev_status: 'todo'
   };
@@ -1724,7 +1695,6 @@ function getFilteredChars() {
   if (!state.data) return [];
   const q = (document.getElementById('char-search')?.value||'').toLowerCase();
   return state.data.characters.filter(c => {
-    if (!state.filters.cgroup.includes(c.group)) return false;
     if (q && !c.name.toLowerCase().includes(q) && !c.actor_name.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1751,8 +1721,6 @@ function renderCharactersTable() {
       </td>
       <td>${esc(c.actor_name||'')}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${roleBadge}${duoBadge}${slotBadge}</td>
-      <td><span class="badge badge-act">${esc(c.role_type||'')}</span></td>
-      <td class="linked-tags">${(c.abilities||[]).map(a=>`<span class="linked-tag" onclick="event.stopPropagation();switchTab('abilities');filterByAbil('${a}')">${esc(a)}</span>`).join('')}</td>
       <td><span class="badge badge-act">${sceneCount} scène${sceneCount!==1?'s':''}</span></td>`;
     tr.addEventListener('click', () => openCharPanel(c.id));
     tbody.appendChild(tr);
@@ -1775,7 +1743,6 @@ function openCharPanel(id) {
       <div style="flex:1;display:flex;flex-direction:column;gap:6px">
         <div class="field-row">
           ${field('ID', 'edit-input', 'id', c.id, 'text', true)}
-          ${fieldSelect('Groupe', 'group', c.group, ['POISSONS','VILLAGEOIS','FBI','main'])}
         </div>
         <div class="field-row">
           ${fieldSelect('Acteur', 'actor_name', c.actor_name, ['Cocca','Cocci','Cocco','Coccé',''])}
@@ -1817,7 +1784,6 @@ function openCharPanel(id) {
     ${field('Résumé', 'edit-textarea', 'summary', c.summary)}
     ${field('Objectif', 'edit-input', 'objective', c.objective)}
     ${field('Peur', 'edit-input', 'fear', c.fear)}
-    ${fieldTags('Capacités', 'char-abil-tags', 'char-abil-input', c.abilities||[], 'abilities')}
     ${field('Notes', 'edit-textarea', 'notes', c.notes)}`;
   document.getElementById('char-panel').classList.add('open');
   requestAnimationFrame(() => setupAutoSave('char-panel', saveChar));
@@ -1832,7 +1798,6 @@ function saveChar() {
     if (f === 'color') { c[f] = el.value; return; }
     c[f] = el.tagName==='SELECT' ? el.value : el.value;
   });
-  c.abilities = getTagValues('char-abil-tags');
   c.image = document.getElementById('char-img-url')?.value || '';
   c.is_duo_main = document.getElementById('cb-duo-main')?.checked || false;
   // player_slot as int or null
@@ -1880,9 +1845,9 @@ function deleteChar() {
 function addChar() {
   const id = 'char-' + Date.now();
   state.data.characters.push({
-    id, name:'Nouveau personnage', actor_name:'', group:'main',
+    id, name:'Nouveau personnage', actor_name:'',
     role:'player', player_slot:null, is_duo_main:false, color:'#888888',
-    role_type:'secondaire', summary:'', objective:'', fear:'', abilities:[], notes:''
+    role_type:'secondaire', summary:'', objective:'', fear:'', notes:''
   });
   markModified();
   renderCharactersTable();
@@ -1903,7 +1868,6 @@ function getFilteredAbils() {
   if (!state.data) return [];
   const q = (document.getElementById('abil-search')?.value||'').toLowerCase();
   return state.data.abilities.filter(a => {
-    if (!state.filters.agroup.includes(a.group)) return false;
     if (q && !a.name.toLowerCase().includes(q) && !a.description.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1920,16 +1884,12 @@ function renderAbilitiesTable() {
     if (a.id === state.selectedAbilId) tr.classList.add('selected');
     tr.innerHTML = `
       <td class="td-title">${esc(a.name)}<small>${esc(a.description)}</small></td>
-      <td><span class="badge badge-${a.group.toLowerCase()}">${esc(a.group)}</span></td>
       <td class="linked-tags">${(a.characters||[]).map(cid=>{
         const ch=state.data.characters.find(c=>c.id===cid);
         return `<span class="linked-tag">${esc(ch?.name||cid)}</span>`;
       }).join('')}</td>
       <td>${unlockScene ? `<span class="tag">${esc(unlockScene.num)}</span>` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
-      <td>${a.shared ? '<span class="badge badge-type">Partagée</span>' : '—'}</td>
-      <td class="variants-grid">
-        ${a.player_count_variants ? Object.entries(a.player_count_variants).map(([k,v])=>`<div class="variant-row"><strong>${k}J</strong> ${esc((v||'').substring(0,60))}${(v||'').length>60?'…':''}</div>`).join('') : '—'}
-      </td>`;
+      <td>${a.shared ? '<span class="badge badge-type">Partagée</span>' : '—'}</td>`;
     tr.addEventListener('click', () => openAbilPanel(a.id));
     tbody.appendChild(tr);
   });
@@ -1946,7 +1906,6 @@ function openAbilPanel(id) {
   body.innerHTML = `
     <div class="field-row">
       ${field('ID', 'edit-input', 'id', a.id, 'text', true)}
-      ${fieldSelect('Groupe', 'group', a.group, ['POISSONS','VILLAGEOIS','FBI'])}
     </div>
     ${field('Nom', 'edit-input', 'name', a.name)}
     ${field('Description', 'edit-textarea', 'description', a.description)}
@@ -1955,18 +1914,6 @@ function openAbilPanel(id) {
     <div class="field-group">
       <div class="field-label">Partagée</div>
       <label class="edit-checkbox-row"><input type="checkbox" id="cb-shared" ${a.shared?'checked':''}> Capacité partagée entre personnages</label>
-    </div>
-    <div class="field-group">
-      <div class="field-label">Variante 2 joueurs</div>
-      <textarea class="edit-textarea" data-field="v2">${esc(v['2']||v.two||'')}</textarea>
-    </div>
-    <div class="field-group">
-      <div class="field-label">Variante 3 joueurs</div>
-      <textarea class="edit-textarea" data-field="v3">${esc(v['3']||v.three||'')}</textarea>
-    </div>
-    <div class="field-group">
-      <div class="field-label">Variante 4 joueurs</div>
-      <textarea class="edit-textarea" data-field="v4">${esc(v['4']||v.four||'')}</textarea>
     </div>`;
   document.getElementById('abil-panel').classList.add('open');
   requestAnimationFrame(() => setupAutoSave('abil-panel', saveAbil));
@@ -1977,14 +1924,8 @@ function saveAbil() {
   const a = state.data.abilities.find(a => a.id === state.selectedAbilId);
   if (!a) return;
   panel.querySelectorAll('[data-field]').forEach(el => {
-    const f = el.dataset.field;
-    if (['v2','v3','v4'].includes(f)) return; // handle separately
-    a[f] = el.tagName==='SELECT' ? el.value : el.value;
+    a[el.dataset.field] = el.tagName==='SELECT' ? el.value : el.value;
   });
-  const v2 = panel.querySelector('[data-field="v2"]')?.value || '';
-  const v3 = panel.querySelector('[data-field="v3"]')?.value || '';
-  const v4 = panel.querySelector('[data-field="v4"]')?.value || '';
-  a.player_count_variants = { '2': v2, '3': v3, '4': v4 };
   a.shared = document.getElementById('cb-shared')?.checked || false;
   a.characters = getTagValues('abil-char-tags');
   markModified();
@@ -2005,8 +1946,8 @@ function deleteAbil() {
 
 function addAbil() {
   const id = 'abil-' + Date.now();
-  state.data.abilities.push({ id, name:'Nouvelle capacité', group:'POISSONS',
-    description:'', characters:[], player_count_variants:{'2':'','3':'','4':''}, unlock_scene:'', shared:false });
+  state.data.abilities.push({ id, name:'Nouvelle capacité',
+    description:'', characters:[], unlock_scene:'', shared:false });
   markModified();
   renderAbilitiesTable();
   openAbilPanel(id);
@@ -2015,10 +1956,9 @@ function addAbil() {
 // ═══════════════════════════════════════════════════════════════
 // GRAPH VIEW (D3)
 // ═══════════════════════════════════════════════════════════════
-const GROUP_COLORS = {
-  CASTING: 'var(--c-casting)', POISSONS: 'var(--c-poissons)',
-  VILLAGEOIS: 'var(--c-villageois)', FBI: 'var(--c-fbi)', MIXTE: 'var(--c-mixte)'
-};
+const ACT_LABELS = { 1:'Intro', 2:'Ch. 1', 3:'Ch. 2', 4:'Ch. 3', 5:'Ch. 4', 6:'Ch. 5' };
+const ACT_COLORS = { 1:'var(--c-intro)', 2:'var(--c-ch1)', 3:'var(--c-ch2)', 4:'var(--c-ch3)', 5:'var(--c-ch4)', 6:'var(--c-ch5)' };
+const ACT_CSS_KEY = { 1:'intro', 2:'ch1', 3:'ch2', 4:'ch3', 5:'ch4', 6:'ch5' };
 
 let graphSim = null;
 
@@ -2107,9 +2047,9 @@ function renderGraph() {
 
   node.append('circle')
     .attr('r', d => d.climax||d.final ? 16 : 12)
-    .attr('fill', d => GROUP_COLORS[d.group] || '#888')
+    .attr('fill', d => ACT_COLORS[d.act] || 'var(--text3)')
     .attr('fill-opacity', 0.25)
-    .attr('stroke', d => GROUP_COLORS[d.group] || '#888')
+    .attr('stroke', d => ACT_COLORS[d.act] || 'var(--text3)')
     .attr('stroke-width', d => d.climax||d.final ? 3 : 2);
 
   // Title label below node
@@ -2422,12 +2362,11 @@ function showGraphPopup(scene, ev) {
           if (!ch) return '';
           const isMain = ch.role_type === 'principal';
           const av = ch.image ? `<span class="char-avatar-sm" style="margin-right:3px"><img src="${esc(ch.image)}"></span>` : '';
-          return `<span class="badge badge-${(ch.group||'').toLowerCase()}" style="${isMain?'font-weight:700':''}display:inline-flex;align-items:center;gap:3px">${av}${esc(ch.name)}</span>`;
+          return `<span class="badge badge-act" style="${isMain?'font-weight:700':''}display:inline-flex;align-items:center;gap:3px">${av}${esc(ch.name)}</span>`;
         }).join('')
       + '</div>';
   }
-  badges.innerHTML = `<span class="badge badge-${scene.group.toLowerCase()}">${esc(scene.group)}</span>
-    <span class="badge badge-act">Acte ${scene.act}</span>
+  badges.innerHTML = `<span class="badge badge-${ACT_CSS_KEY[scene.act]||'act'}">${ACT_LABELS[scene.act]||'—'}</span>
     <span class="badge badge-type">${esc(scene.type)}</span>
     ${scene.climax ? '<span class="badge badge-climax">climax</span>' : ''}
     ${scene.final  ? '<span class="badge badge-final">final</span>'  : ''}
@@ -2623,20 +2562,17 @@ function popupGoToScenario() {
 // SCENARIO TIMELINE
 // ═══════════════════════════════════════════════════════════════
 const TIMELINE_TRACKS = [
-  { id: 'CASTING',    label: 'Casting',      cls: 'track-casting' },
-  { id: 'POISSONS',   label: 'Poissons',     cls: 'track-poissons' },
-  { id: 'VILLAGEOIS', label: 'Villageois',   cls: 'track-villageois' },
-  { id: 'FBI',        label: 'FBI',          cls: 'track-fbi' },
-  { id: 'MIXTE',      label: 'Mixte',        cls: 'track-mixte' },
-  { id: 'NOTES',      label: 'Notes libres', cls: 'track-notes' },
+  { id: 'SCENES', label: 'Scènes', cls: 'track-scenes' },
+  { id: 'NOTES',  label: 'Notes libres', cls: 'track-notes' },
 ];
-const ACTS = [1, 2, 3];
 
-// Act zones on the shared X axis (pixels)
 const TL_ACT_ZONES = [
-  { act: 1, x: 0,    label: 'Acte 1 – Le calme avant la tempête' },
-  { act: 2, x: 1200, label: 'Acte 2 – Des poissons partout' },
-  { act: 3, x: 2600, label: 'Acte 3 – Les étoiles de mer' },
+  { act: 1, x: 0,    label: 'Intro' },
+  { act: 2, x: 800,  label: 'Chapitre 1' },
+  { act: 3, x: 1600, label: 'Chapitre 2' },
+  { act: 4, x: 2400, label: 'Chapitre 3' },
+  { act: 5, x: 3200, label: 'Chapitre 4' },
+  { act: 6, x: 4000, label: 'Chapitre 5' },
 ];
 const TL_TOTAL_MIN = 4600;
 const TL_CARD_W    = 182;
@@ -2645,18 +2581,11 @@ const TL_STEP      = 210;   // default spacing between consecutive cards
 
 // ── Position helpers ─────────────────────────────────────────────
 
-// Scene start positions per act (offset from zone start, after casting gap)
-const TL_ACT_SCENE_OFFSET = { 1: 290, 2: 40, 3: 40 };
-
 function tlAutoX(scene) {
-  if (scene.group === 'CASTING') {
-    const castScenes = state.data.scenes.filter(s => s.group === 'CASTING');
-    return 50 + castScenes.findIndex(s => s.id === scene.id) * TL_STEP;
-  }
   const zone = TL_ACT_ZONES.find(z => z.act === scene.act);
-  const actStart = (zone?.x ?? 0) + (TL_ACT_SCENE_OFFSET[scene.act] ?? 40);
-  const groupInAct = state.data.scenes.filter(s => s.group === scene.group && s.act === scene.act);
-  const idx = groupInAct.findIndex(s => s.id === scene.id);
+  const actStart = (zone?.x ?? 0) + 40;
+  const inAct = state.data.scenes.filter(s => s.act === scene.act);
+  const idx = inAct.findIndex(s => s.id === scene.id);
   return actStart + Math.max(0, idx) * TL_STEP;
 }
 
@@ -2767,7 +2696,7 @@ function renderTimeline() {
   if (!state.data) return;
   const synopsisEl = document.getElementById('scenario-synopsis');
   if (synopsisEl) synopsisEl.value = state.data.scenario?.synopsis || '';
-  [1,2,3].forEach(act => {
+  [1,2,3,4,5,6].forEach(act => {
     const el = document.getElementById(`scenario-synopsis-act${act}`);
     if (el) el.value = state.data.scenario?.act_synopses?.[act] || '';
   });
@@ -2803,8 +2732,7 @@ function renderTimeline() {
 
     const label = document.createElement('div');
     label.className = `tl-track-label ${track.cls}`;
-    const sceneCount = track.id === 'NOTES' ? 0
-      : state.data.scenes.filter(s => s.group === track.id).length;
+    const sceneCount = track.id === 'NOTES' ? 0 : state.data.scenes.length;
     label.innerHTML = `<span class="tl-track-name">${track.label}</span>`
       + (sceneCount ? `<span class="tl-track-count">${sceneCount} scène${sceneCount > 1 ? 's' : ''}</span>` : '');
     row.appendChild(label);
@@ -2823,8 +2751,8 @@ function renderTimeline() {
     });
 
     // Scene cards
-    if (track.id !== 'NOTES') {
-      state.data.scenes.filter(s => s.group === track.id).forEach(scene => {
+    if (track.id === 'SCENES') {
+      state.data.scenes.forEach(scene => {
         const x    = tlGetX(scene.id, () => tlAutoX(scene));
         const card = makeTlSceneCard(scene);
         card.style.left = x + 'px';
@@ -2874,7 +2802,6 @@ function renderTimeline() {
 }
 
 function makeTlSceneCard(scene) {
-  const grp  = scene.group.toLowerCase();
   const card = document.createElement('div');
   card.className = 'tl-scene-card' + (scene.climax ? ' is-climax' : '') + (scene.final ? ' is-final' : '');
   card.dataset.sceneId = scene.id;
@@ -2884,16 +2811,7 @@ function makeTlSceneCard(scene) {
   if (scene.final)  flags += `<span class="sc-flag final">Fin</span>`;
   if (scene.bonus)  flags += `<span class="sc-flag bonus">Bonus</span>`;
 
-  let roles = '';
-  if (scene.group === 'MIXTE' && scene.roles_involved?.length) {
-    roles = scene.roles_involved.map(rid => {
-      const ch = state.data.characters?.find(c => c.id === rid);
-      const isMain = ch?.role_type === 'principal';
-      const avatar = ch?.image ? `<img src="${esc(ch.image)}" style="width:14px;height:14px;border-radius:50%;object-fit:cover;flex-shrink:0">` : '';
-      return `<span class="sc-role${isMain?' role-main':''}">${avatar}${esc(ch ? ch.name : rid)}</span>`;
-    }).join('');
-    roles = `<div class="sc-roles">${roles}</div>`;
-  }
+  const roles = '';
 
   const desc = scene.description
     ? `<div class="sc-desc">${esc(scene.description)}</div>` : '';
@@ -2905,7 +2823,8 @@ function makeTlSceneCard(scene) {
     <div class="sc-title">${esc(scene.title)}</div>
     ${flags  ? `<div class="sc-flags">${flags}</div>` : ''}
     ${desc}${roles}${notes}`;
-  card.style.borderTop = `2px solid var(--c-${grp})`;
+  card.style.borderTop = `2px solid ${ACT_COLORS[scene.act] || 'var(--border)'}`;
+  // MIXTE roles block removed (no more groups)
 
   // Click to edit — only if not dragging (drag suppresses click via makeTlDraggable)
   card.addEventListener('click', () => { switchTab('scenes'); openScenePanel(scene.id); });
@@ -3389,7 +3308,7 @@ function renderDlgList() {
       </div>
       <div class="dlg-seq-meta">
         ${sceneLabel}
-        ${seq.act ? `<span class="badge badge-act" style="font-size:10px">Acte ${seq.act}</span>` : ''}
+        ${seq.act ? `<span class="badge badge-${ACT_CSS_KEY[seq.act]||'act'}" style="font-size:10px">${ACT_LABELS[seq.act]||('Ch.'+seq.act)}</span>` : ''}
         ${vBadges}
         <div class="dlg-seq-speakers" style="margin-left:auto;display:flex;gap:3px;align-items:center">${speakerDots}</div>
       </div>
@@ -4645,7 +4564,7 @@ function confirmCreateSeq() {
   const id = 'seq_' + Date.now();
   const seq = {
     id, scene_id: sceneId, label, act,
-    conditions: { players_present: [], player_count_min: 2, player_count_max: 4, scene_id: '' },
+    conditions: { scene_id: '' },
     nodes: [], canvas_notes: [], notes: ''
   };
   state.data.dialogue_sequences.push(seq);
