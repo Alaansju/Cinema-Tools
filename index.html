@@ -3743,7 +3743,9 @@ function _dgBuild(seqId) {
       // Output drag → find nearest input port (left edge)
       _gs.nodes.forEach(n => {
         if (n.id === srcId || n._data.type === 'entry') return;
-        const dist = Math.sqrt((n.x - (n.nw ?? NW)/2 - mx)**2 + (n.y - my)**2);
+        const isCircleN = n._data.type === 'entry' || n._data.type === 'exit';
+        const portX = n.x - (n.nw ?? NW)/2 - (isCircleN ? 0 : 8);
+        const dist = Math.sqrt((portX - mx)**2 + (n.y - my)**2);
         if (dist < nearestDist) { nearest = n; nearestDist = dist; }
       });
       if (nearest) { _dgCreateLink(srcId, nearest.id, seqId); return; }
@@ -3751,7 +3753,9 @@ function _dgBuild(seqId) {
       // Input drag → find nearest output port (right edge)
       _gs.nodes.forEach(n => {
         if (n.id === srcId || n._data.type === 'exit') return;
-        const dist = Math.sqrt((n.x + (n.nw ?? NW)/2 - mx)**2 + (n.y - my)**2);
+        const isCircleN = n._data.type === 'entry' || n._data.type === 'exit';
+        const portX = n.x + (n.nw ?? NW)/2 + (isCircleN ? 0 : 8);
+        const dist = Math.sqrt((portX - mx)**2 + (n.y - my)**2);
         if (dist < nearestDist) { nearest = n; nearestDist = dist; }
       });
       if (nearest) { _dgCreateLink(nearest.id, srcId, seqId); return; }
@@ -3781,8 +3785,8 @@ function _dgBuild(seqId) {
       const tid = typeof d.target === 'object' ? d.target.id : d.target;
       const src = nodeMap.get(sid), tgt = nodeMap.get(tid);
       if (!src || !tgt) return;
-      const sx = src.x + (src.nw ?? NW) / 2;
-      const tx = tgt.x - (tgt.nw ?? NW) / 2;
+      const sx = src.x + (src.nw ?? NW) / 2 + (src._data?.type === 'entry' || src._data?.type === 'exit' ? 0 : 8);
+      const tx = tgt.x - (tgt.nw ?? NW) / 2 - (tgt._data?.type === 'entry' || tgt._data?.type === 'exit' ? 0 : 8);
       d3.select(this).selectAll('line').attr('x1',sx).attr('y1',src.y).attr('x2',tx).attr('y2',tgt.y);
     });
     nodeG.selectAll('.dg-node').attr('transform', d => `translate(${d.x},${d.y})`);
@@ -3821,8 +3825,7 @@ function _dgRenderLinks(linkG, linkData, seqId) {
   ).each(function(d) {
     const ver = (!d.version || d.version === 'all') ? 'other' : d.version;
     d3.select(this).select('.dg-link-line')
-      .attr('stroke', _dlgVersionColor(ver))
-      .attr('marker-end', `url(#dg-arr-${ver})`);
+      .attr('stroke', _dlgVersionColor(ver));
     d3.select(this).on('click', (ev) => {
       ev.stopPropagation();
       _dgShowLinkVersionPopup(ev.clientX, ev.clientY, d, seqId);
@@ -3985,7 +3988,8 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         _gs.pendingLink.active   = true;
         _gs.pendingLink.sourceId = d.id;
         _gs.pendingLink.isInput  = true;
-        _gs.pendingLink.sx       = d.x - (d.nw ?? NW) / 2;
+        const isCircD = d._data?.type === 'entry' || d._data?.type === 'exit';
+        _gs.pendingLink.sx       = d.x - (d.nw ?? NW) / 2 - (isCircD ? 0 : 8);
         _gs.pendingLink.sy       = d.y;
       });
 
@@ -3997,7 +4001,8 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         _gs.pendingLink.active   = true;
         _gs.pendingLink.sourceId = d.id;
         _gs.pendingLink.isInput  = false;
-        _gs.pendingLink.sx       = d.x + (d.nw ?? NW) / 2;
+        const isCircD = d._data?.type === 'entry' || d._data?.type === 'exit';
+        _gs.pendingLink.sx       = d.x + (d.nw ?? NW) / 2 + (isCircD ? 0 : 8);
         _gs.pendingLink.sy       = d.y;
       });
 
@@ -4133,13 +4138,13 @@ function _dgApplyNodeStyle(g, d, seqId) {
     const charImg = g.select('.dg-char-img');
     if (char?.image) {
       charImg.attr('href', char.image).attr('display', null)
-        .attr('x', NW/2 - 26).attr('y', -nh/2 + 2);
+        .attr('x', -NW/2 + 8).attr('y', -nh/2 + 2);
     } else {
       charImg.attr('display', 'none');
     }
 
-    g.select('.dg-port-in').attr('cx', -NW/2).attr('display', null).attr('stroke', vColor);
-    g.select('.dg-port-out').attr('cx',  NW/2).attr('display', null).attr('stroke', vColor);
+    g.select('.dg-port-in').attr('cx', -NW/2 - 8).attr('display', null).attr('stroke', vColor);
+    g.select('.dg-port-out').attr('cx',  NW/2 + 8).attr('display', null).attr('stroke', vColor);
   }
 
   g.select('title').text(nd.text_fr || nd.id);
