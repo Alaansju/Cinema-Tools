@@ -3602,7 +3602,7 @@ function renderDlgTable() {
 let _gs = {
   seqId: null, sim: null, tick: null, selectedNodeId: null,
   transform: null, nodes: [], linkData: [],
-  pendingLink: { active: false, sourceId: null, sx: 0, sy: 0, pendingSource: null },
+  pendingLink: { active: false, sourceId: null, isInput: false, sx: 0, sy: 0, pendingSource: null, pendingIsInput: false },
 };
 
 function renderDlgNodeGraph(seqId) {
@@ -3637,7 +3637,7 @@ function renderDlgNodeGraph(seqId) {
     </div>
   </div>`;
 
-  _gs = { seqId, sim: null, tick: null, selectedNodeId: null, transform: null, nodes: [], linkData: [], pendingLink: { active: false, sourceId: null, sx: 0, sy: 0, pendingSource: null } };
+  _gs = { seqId, sim: null, tick: null, selectedNodeId: null, transform: null, nodes: [], linkData: [], pendingLink: { active: false, sourceId: null, isInput: false, sx: 0, sy: 0, pendingSource: null, pendingIsInput: false } };
 
   _dgBuild(seqId);
 }
@@ -3717,40 +3717,55 @@ function _dgBuild(seqId) {
     _dgClosePanel();
   });
 
-  // Port mouse events for link creation (attached after render)
+  // Port mouse events for link creation
   svg.on('mousemove.port', (ev) => {
     if (!_gs.pendingLink.active) return;
     const [mx, my] = d3.pointer(ev, root.node());
-    pendingPath.attr('d',
-      `M ${_gs.pendingLink.sx} ${_gs.pendingLink.sy} C ${_gs.pendingLink.sx+60} ${_gs.pendingLink.sy}, ${mx-60} ${my}, ${mx} ${my}`
+    const { sx, sy, isInput } = _gs.pendingLink;
+    const dx = Math.max(40, Math.abs(mx - sx) / 2);
+    pendingPath.attr('d', isInput
+      ? `M ${mx} ${my} C ${mx+dx} ${my}, ${sx-dx} ${sy}, ${sx} ${sy}`
+      : `M ${sx} ${sy} C ${sx+dx} ${sy}, ${mx-dx} ${my}, ${mx} ${my}`
     ).attr('opacity',1);
   });
+
   svg.on('mouseup.port', (ev) => {
     if (!_gs.pendingLink.active) return;
-    const srcId = _gs.pendingLink.sourceId;
+    const { sourceId: srcId, isInput } = _gs.pendingLink;
     _gs.pendingLink.active = false;
+    _gs.pendingLink.isInput = false;
     pendingPath.attr('opacity', 0);
     const [mx, my] = d3.pointer(ev, root.node());
-    // Find nearest input port (left edge of node)
+
     let nearest = null, nearestDist = 40;
-    _gs.nodes.forEach(n => {
-      if (n.id === srcId || n._data.type === 'entry') return;
-      const portX = n.x - (n.nw ?? NW) / 2;
-      const dist = Math.sqrt((portX - mx)**2 + (n.y - my)**2);
-      if (dist < nearestDist) { nearest = n; nearestDist = dist; }
-    });
-    if (nearest) {
-      _dgCreateLink(srcId, nearest.id, seqId);
+    if (!isInput) {
+      // Output drag → find nearest input port (left edge)
+      _gs.nodes.forEach(n => {
+        if (n.id === srcId || n._data.type === 'entry') return;
+        const dist = Math.sqrt((n.x - (n.nw ?? NW)/2 - mx)**2 + (n.y - my)**2);
+        if (dist < nearestDist) { nearest = n; nearestDist = dist; }
+      });
+      if (nearest) { _dgCreateLink(srcId, nearest.id, seqId); return; }
     } else {
-      // Dropped on empty space → show creation popup and auto-link new node
-      _gs.pendingLink.pendingSource = srcId;
-      const svgRect = svg.node().getBoundingClientRect();
-      const t = _gs.transform || d3.zoomIdentity;
-      const cx = (ev.clientX - svgRect.left - t.x) / t.k;
-      const cy = (ev.clientY - svgRect.top  - t.y) / t.k;
-      _dgShowCreationPopup(ev.clientX, ev.clientY, cx, cy, seqId);
+      // Input drag → find nearest output port (right edge)
+      _gs.nodes.forEach(n => {
+        if (n.id === srcId || n._data.type === 'exit') return;
+        const dist = Math.sqrt((n.x + (n.nw ?? NW)/2 - mx)**2 + (n.y - my)**2);
+        if (dist < nearestDist) { nearest = n; nearestDist = dist; }
+      });
+      if (nearest) { _dgCreateLink(nearest.id, srcId, seqId); return; }
     }
+
+    // Dropped on empty space → creation popup + auto-link
+    _gs.pendingLink.pendingSource = srcId;
+    _gs.pendingLink.pendingIsInput = isInput;
+    const svgRect = svg.node().getBoundingClientRect();
+    const t = _gs.transform || d3.zoomIdentity;
+    const cx = (ev.clientX - svgRect.left - t.x) / t.k;
+    const cy = (ev.clientY - svgRect.top  - t.y) / t.k;
+    _dgShowCreationPopup(ev.clientX, ev.clientY, cx, cy, seqId);
   });
+
   svg.on('mouseleave.port', () => {
     if (_gs.pendingLink.active) { _gs.pendingLink.active = false; pendingPath.attr('opacity', 0); }
   });
@@ -3950,8 +3965,17 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         .attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text)');
 
       // ── Ports ──
-      g.append('circle').attr('class','dg-port dg-port-in')
+      const inPort = g.append('circle').attr('class','dg-port dg-port-in')
         .attr('cy',0).attr('r',PR).attr('fill','var(--bg)').attr('stroke-width',2);
+
+      inPort.on('mousedown', (ev, d) => {
+        ev.stopPropagation(); ev.preventDefault();
+        _gs.pendingLink.active   = true;
+        _gs.pendingLink.sourceId = d.id;
+        _gs.pendingLink.isInput  = true;
+        _gs.pendingLink.sx       = d.x - (d.nw ?? NW) / 2;
+        _gs.pendingLink.sy       = d.y;
+      });
 
       const outPort = g.append('circle').attr('class','dg-port dg-port-out')
         .attr('cy',0).attr('r',PR).attr('fill','var(--bg)').attr('stroke-width',2);
@@ -3960,6 +3984,7 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         ev.stopPropagation(); ev.preventDefault();
         _gs.pendingLink.active   = true;
         _gs.pendingLink.sourceId = d.id;
+        _gs.pendingLink.isInput  = false;
         _gs.pendingLink.sx       = d.x + (d.nw ?? NW) / 2;
         _gs.pendingLink.sy       = d.y;
       });
@@ -4299,22 +4324,38 @@ function _dgCreateNodeAt(seqId, x, y, type, speakerId) {
   const seq = _seqById(seqId);
   if (!seq) return;
   if (!seq.nodes) seq.nodes = [];
+
+  // Resolve auto-link source before pushing new node
+  const autoSrc      = _gs.pendingLink.pendingSource;
+  const autoIsInput  = _gs.pendingLink.pendingIsInput;
+  _gs.pendingLink.pendingSource  = null;
+  _gs.pendingLink.pendingIsInput = false;
+
+  const srcNode = autoSrc ? (seq.nodes||[]).find(n => n.id === autoSrc) : null;
+  const inheritedVersion = srcNode?.version || 'all';
+
   const id = 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000);
   seq.nodes.push({
-    id, type, version: 'all',
+    id, type, version: inheritedVersion,
     speaker_id: speakerId, is_canon: false,
     locale_key: _generateLocaleKey(seqId, id),
     text_fr: '', emotion: '',
     rhythm_duration_ms: 0, rhythm_syllables: 0,
     links: [], conditions: {}, x, y
   });
-  // Auto-link if creation was triggered from a port drag
-  const autoSrc = _gs.pendingLink.pendingSource;
-  if (autoSrc) {
-    _gs.pendingLink.pendingSource = null;
-    const srcNode = (seq.nodes||[]).find(n => n.id === autoSrc);
-    if (srcNode) { if (!srcNode.links) srcNode.links = []; srcNode.links.push({ target: id, version: srcNode.version || 'all' }); }
+
+  if (srcNode) {
+    if (autoIsInput) {
+      // New node → existing node (dragged from input port)
+      const newNode = seq.nodes.find(n => n.id === id);
+      if (newNode) { if (!newNode.links) newNode.links = []; newNode.links.push({ target: autoSrc, version: inheritedVersion }); }
+    } else {
+      // Existing node → new node (dragged from output port)
+      if (!srcNode.links) srcNode.links = [];
+      srcNode.links.push({ target: id, version: inheritedVersion });
+    }
   }
+
   markModified();
   renderDlgNodeGraph(seqId);
   setTimeout(() => _dgSelectNode(id, seqId), 60);
