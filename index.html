@@ -706,9 +706,9 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 
 /* Node inline text editing */
 .dg-node-text-div {
-  width:100%; height:100%; padding:1px 3px;
+  width:100%; height:auto; min-height:24px; padding:1px 3px;
   font-size:10px; line-height:1.35; outline:none;
-  cursor:text; word-break:break-word; overflow:hidden;
+  cursor:text; word-break:break-word; overflow:visible;
   color:var(--text); font-family:inherit; background:transparent;
   white-space:pre-wrap;
 }
@@ -3728,11 +3728,12 @@ function _dgBuild(seqId) {
     _gs.pendingLink.active = false;
     pendingPath.attr('opacity', 0);
     const [mx, my] = d3.pointer(ev, root.node());
-    // Find nearest input port (left of node, at x - NW/2, y)
-    let nearest = null, nearestDist = 36;
+    // Find nearest input port (left edge of node)
+    let nearest = null, nearestDist = 40;
     _gs.nodes.forEach(n => {
       if (n.id === srcId || n._data.type === 'entry') return;
-      const dist = Math.sqrt((n.x - NW/2 - mx)**2 + (n.y - my)**2);
+      const portX = n.x - (n.nw ?? NW) / 2;
+      const dist = Math.sqrt((portX - mx)**2 + (n.y - my)**2);
       if (dist < nearestDist) { nearest = n; nearestDist = dist; }
     });
     if (nearest) {
@@ -3751,14 +3752,19 @@ function _dgBuild(seqId) {
     if (_gs.pendingLink.active) { _gs.pendingLink.active = false; pendingPath.attr('opacity', 0); }
   });
 
-  // Tick: update link and node positions
+  // nodeMap for fast lookup in tick (linkData uses string IDs, not objects)
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  _gs.nodeMap = nodeMap;
+
   function tick() {
     linkG.selectAll('g.dg-link-grp').each(function(d) {
-      const src = d.source, tgt = d.target;
-      if (!src?.x) return;
-      d3.select(this).selectAll('line')
-        .attr('x1', src.x + NW/2).attr('y1', src.y)
-        .attr('x2', tgt.x - NW/2).attr('y2', tgt.y);
+      const sid = typeof d.source === 'object' ? d.source.id : d.source;
+      const tid = typeof d.target === 'object' ? d.target.id : d.target;
+      const src = nodeMap.get(sid), tgt = nodeMap.get(tid);
+      if (!src || !tgt) return;
+      const sx = src.x + (src.nw ?? NW) / 2;
+      const tx = tgt.x - (tgt.nw ?? NW) / 2;
+      d3.select(this).selectAll('line').attr('x1',sx).attr('y1',src.y).attr('x2',tx).attr('y2',tgt.y);
     });
     nodeG.selectAll('.dg-node').attr('transform', d => `translate(${d.x},${d.y})`);
   }
@@ -3862,13 +3868,14 @@ function _dgRenderNotes(noteG, seq, seqId) {
 }
 
 function _dgRenderNodes(nodeG, nodes, seqId) {
-  const NW = 160, PR = 6;
+  const NW = 160, CR = 30, PR = 6; // CR = circle radius for entry/exit
 
   nodeG.selectAll('.dg-node').data(nodes, d => d.id).join(
     enter => {
       const g = enter.append('g').attr('class','dg-node')
         .attr('data-id', d => d.id);
 
+      // ── Rect-based layout (dialogue, event, branch, canon) ──
       g.append('rect').attr('class','dg-node-bg')
         .attr('width',NW).attr('x',-NW/2).attr('rx',8);
 
@@ -3879,18 +3886,21 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         .attr('x',-NW/2+11).attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text2)');
 
       const fo = g.append('foreignObject').attr('class','dg-node-fo')
-        .attr('x',-NW/2+10).attr('width',NW-20);
+        .attr('x',-NW/2+10).attr('width',NW-20).attr('height',2000);
       fo.append('xhtml:div').attr('class','dg-node-text-div')
         .attr('contenteditable','true')
         .on('mousedown', ev => ev.stopPropagation())
         .on('click',     ev => ev.stopPropagation())
         .on('input', function(ev, d) {
           ev.stopPropagation();
-          d._data.text_fr = this.textContent || '';
+          d._data.text_fr = this.innerText || '';
           markModified();
-          // Auto-resize node
-          const nodeEl = nodeG.selectAll('.dg-node').filter(n => n.id === d.id).node();
-          if (nodeEl) { _dgApplyNodeStyle(d3.select(nodeEl), d, seqId); _gs.tick?.(); }
+          // Auto-height from actual scrollHeight
+          const sh = this.scrollHeight || 24;
+          const nh = Math.max(64, 36 + sh);
+          d.nh = nh; d.nw = NW;
+          const nodeEl = document.querySelector(`g.dg-node[data-id="${d.id}"]`);
+          if (nodeEl) { _dgApplyNodeSizeOnly(d3.select(nodeEl), nh); _gs.tick?.(); }
         });
 
       g.append('title');
@@ -3903,38 +3913,36 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         .on('mousedown', ev => ev.stopPropagation())
         .on('click', (ev, d) => { ev.stopPropagation(); _dgDeleteNode(_gs.seqId, d.id); });
 
-      // Input port (left center)
-      g.append('circle').attr('class','dg-port dg-port-in')
-        .attr('cx',-NW/2).attr('cy',0).attr('r',PR)
-        .attr('fill','var(--bg)').attr('stroke-width',2);
+      // ── Circle layout (entry / exit) ──
+      g.append('circle').attr('class','dg-node-circle')
+        .attr('cx',0).attr('cy',0).attr('r',CR).attr('stroke-width',2).attr('fill','var(--bg2)');
+      g.append('text').attr('class','dg-node-circle-lbl')
+        .attr('text-anchor','middle').attr('dominant-baseline','middle')
+        .attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text)');
 
-      // Output port (right center)
+      // ── Ports ──
+      g.append('circle').attr('class','dg-port dg-port-in')
+        .attr('cy',0).attr('r',PR).attr('fill','var(--bg)').attr('stroke-width',2);
+
       const outPort = g.append('circle').attr('class','dg-port dg-port-out')
-        .attr('cx',NW/2).attr('cy',0).attr('r',PR)
-        .attr('fill','var(--bg)').attr('stroke-width',2);
+        .attr('cy',0).attr('r',PR).attr('fill','var(--bg)').attr('stroke-width',2);
 
       outPort.on('mousedown', (ev, d) => {
         ev.stopPropagation(); ev.preventDefault();
         _gs.pendingLink.active   = true;
         _gs.pendingLink.sourceId = d.id;
-        _gs.pendingLink.sx       = d.x + NW/2;
+        _gs.pendingLink.sx       = d.x + (d.nw ?? NW) / 2;
         _gs.pendingLink.sy       = d.y;
       });
 
-      // Drag — purely manual, no simulation involvement
+      // Drag — purely manual
       g.call(d3.drag()
         .filter(ev => !ev.target.classList.contains('dg-port') &&
                       !ev.target.classList.contains('dg-node-del') &&
                       ev.target.tagName !== 'div')
-        .on('start', (ev) => { ev.sourceEvent?.stopPropagation(); })
-        .on('drag', (ev, d) => {
-          d.x = ev.x; d.y = ev.y;
-          _gs.tick?.();
-        })
-        .on('end', (ev, d) => {
-          d._data.x = d.x; d._data.y = d.y;
-          markModified();
-        }));
+        .on('start', ev => { ev.sourceEvent?.stopPropagation(); })
+        .on('drag', (ev, d) => { d.x = ev.x; d.y = ev.y; _gs.tick?.(); })
+        .on('end', (ev, d) => { d._data.x = d.x; d._data.y = d.y; markModified(); }));
 
       g.on('click', (ev, d) => {
         if (ev.target.classList.contains('dg-port')) return;
@@ -3950,52 +3958,99 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
   ).each(function(d) { _dgApplyNodeStyle(d3.select(this), d, seqId); });
 }
 
-function _dgNodeH(nd) {
-  const t = nd.text_fr || '';
-  const lines = Math.max(2, Math.ceil(t.length / 22));
-  return Math.max(64, 36 + lines * 14);
+// Fast size-only update (called on text input to avoid full style recompute)
+function _dgApplyNodeSizeOnly(g, nh) {
+  g.select('.dg-node-bg').attr('height', nh).attr('y', -nh/2);
+  g.select('.dg-speaker-bar').attr('height', nh-10).attr('y', -nh/2+5);
+  g.select('.dg-speaker-name').attr('y', -nh/2+16);
+  g.select('.dg-node-fo').attr('y', -nh/2+23);
+  g.select('.dg-node-del').attr('y', -nh/2+14);
 }
 
 function _dgApplyNodeStyle(g, d, seqId) {
-  const NW = 160;
+  const NW = 160, CR = 30;
   const nd = d._data;
-  const nh = _dgNodeH(nd);
-  d.nh = nh;
-
-  const char = _charById(nd.speaker_id);
-  const vColor = _dlgVersionColor(nd.version || 'all');
+  const isCircle = nd.type === 'entry' || nd.type === 'exit';
   const isEntry = nd.type === 'entry', isExit = nd.type === 'exit';
   const isSelected = d.id === _gs.selectedNodeId;
+  const char = _charById(nd.speaker_id);
+  const vColor = _dlgVersionColor(nd.version || 'all');
 
-  g.select('.dg-node-bg')
-    .attr('height', nh).attr('y', -nh/2)
-    .attr('fill', isEntry ? 'rgba(82,201,123,0.15)' : isExit ? 'rgba(224,82,82,0.15)' : (char?.color ? char.color+'18' : 'var(--bg2)'))
-    .attr('stroke', isSelected ? 'var(--accent)' : isEntry ? '#52c97b' : isExit ? '#e05252' : vColor)
-    .attr('stroke-width', isSelected ? 3 : 2);
+  if (isCircle) {
+    // ── Circle node (entry / exit) ──
+    d.nw = CR * 2; d.nh = CR * 2;
 
-  g.select('.dg-speaker-bar')
-    .attr('height', nh - 10).attr('y', -nh/2 + 5)
-    .attr('fill', char?.color || (isEntry ? '#52c97b' : isExit ? '#e05252' : '#666'));
+    g.select('.dg-node-bg').attr('display','none');
+    g.select('.dg-speaker-bar').attr('display','none');
+    g.select('.dg-speaker-name').attr('display','none');
+    g.select('.dg-node-fo').attr('display','none');
+    g.select('.dg-node-del').attr('display','none');
 
-  g.select('.dg-speaker-name')
-    .attr('y', -nh/2 + 16)
-    .text(char?.name || nd.speaker_id || (isEntry ? 'ENTRÉE' : isExit ? 'FIN' : ''));
+    const circColor = isEntry ? '#52c97b' : '#e05252';
+    g.select('.dg-node-circle')
+      .attr('display', null)
+      .attr('stroke', isSelected ? 'var(--accent)' : circColor)
+      .attr('fill', `${circColor}22`);
 
-  g.select('.dg-node-fo')
-    .attr('y', -nh/2 + 23).attr('height', nh - 34);
+    // Short label: last segment of id or generic
+    const lbl = nd.id.replace(/^node_/,'').slice(-6);
+    g.select('.dg-node-circle-lbl').attr('display', null).text(lbl);
 
-  const textDiv = g.select('.dg-node-fo div');
-  if (!textDiv.empty() && document.activeElement !== textDiv.node())
-    textDiv.text(nd.text_fr || '');
+    // Port positions at circle boundary
+    g.select('.dg-port-in')
+      .attr('cx', -CR).attr('display', isEntry ? 'none' : null).attr('stroke', circColor);
+    g.select('.dg-port-out')
+      .attr('cx',  CR).attr('display', isExit  ? 'none' : null).attr('stroke', circColor);
 
-  g.select('.dg-node-del').attr('y', -nh/2 + 14);
+  } else {
+    // ── Rect node ──
+    g.select('.dg-node-circle').attr('display','none');
+    g.select('.dg-node-circle-lbl').attr('display','none');
+    g.select('.dg-node-bg').attr('display', null);
+    g.select('.dg-speaker-bar').attr('display', null);
+    g.select('.dg-speaker-name').attr('display', null);
+    g.select('.dg-node-fo').attr('display', null);
+    g.select('.dg-node-del').attr('display', null);
 
-  g.select('.dg-port-in')
-    .attr('display', isEntry ? 'none' : null)
-    .attr('stroke', vColor);
-  g.select('.dg-port-out')
-    .attr('display', isExit ? 'none' : null)
-    .attr('stroke', vColor);
+    // Compute height from scrollHeight if div is in DOM, else estimate
+    let nh;
+    const divEl = g.select('.dg-node-fo div').node();
+    if (divEl && divEl.scrollHeight > 0) {
+      nh = Math.max(64, 36 + divEl.scrollHeight);
+    } else {
+      const t = nd.text_fr || '';
+      const newlines = (t.match(/\n/g)||[]).length;
+      const charLines = Math.ceil(t.length / 22) || 1;
+      const lines = Math.max(newlines + 1, charLines, 2);
+      nh = Math.max(64, 36 + lines * 14);
+    }
+    d.nh = nh; d.nw = NW;
+
+    g.select('.dg-node-bg')
+      .attr('height', nh).attr('y', -nh/2)
+      .attr('fill', char?.color ? char.color+'18' : 'var(--bg2)')
+      .attr('stroke', isSelected ? 'var(--accent)' : vColor)
+      .attr('stroke-width', isSelected ? 3 : 2);
+
+    g.select('.dg-speaker-bar')
+      .attr('height', nh-10).attr('y', -nh/2+5)
+      .attr('fill', char?.color || '#666');
+
+    g.select('.dg-speaker-name')
+      .attr('y', -nh/2+16)
+      .text(char?.name || nd.speaker_id || '');
+
+    g.select('.dg-node-fo').attr('y', -nh/2+23);
+
+    const textDiv = g.select('.dg-node-fo div');
+    if (!textDiv.empty() && document.activeElement !== textDiv.node())
+      textDiv.text(nd.text_fr || '');
+
+    g.select('.dg-node-del').attr('y', -nh/2+14).attr('x', NW/2-6);
+
+    g.select('.dg-port-in').attr('cx', -NW/2).attr('display', null).attr('stroke', vColor);
+    g.select('.dg-port-out').attr('cx',  NW/2).attr('display', null).attr('stroke', vColor);
+  }
 
   g.select('title').text(nd.text_fr || nd.id);
 }
@@ -4224,6 +4279,8 @@ function _dgRebuildLinks(seqId) {
     });
   });
   _gs.linkData = linkData;
+  // Refresh nodeMap (may have new nodes after creation)
+  if (_gs.nodeMap) _gs.nodes.forEach(n => _gs.nodeMap.set(n.id, n));
   _dgRenderLinks(d3.select('#dg-links'), linkData, sid);
   _gs.tick?.();
 }
@@ -4286,7 +4343,6 @@ function _dgHideLinkPopup() {
 function _dgAddNodeAt(seqId, x, y) { _dgCreateNodeAt(seqId, x, y, 'dialogue', ''); }
 
 function _dgDeleteNode(seqId, nodeId) {
-  if (!confirm('Supprimer ce nœud ?')) return;
   const seq = _seqById(seqId);
   if (!seq) return;
   seq.nodes = (seq.nodes||[]).filter(n => n.id !== nodeId);
