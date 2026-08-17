@@ -2224,7 +2224,8 @@ async function ghPull() {
   ghSetStatus('busy');
   try {
     const file = await ghApiGet(cfg.path);
-    const json = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g,'')))));
+    const raw = decodeURIComponent(escape(atob(file.content.replace(/\n/g,'')))).replace(/^﻿/, '');
+    const json = JSON.parse(raw);
     loadData(json);
     localStorage.setItem('se-story-data', JSON.stringify(json));
     ghSetStatus('ok');
