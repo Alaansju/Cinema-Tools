@@ -3700,18 +3700,19 @@ function _dgBuild(seqId) {
   svg.call(zoom);
   if (_gs.transform) svg.call(zoom.transform, _gs.transform);
 
-  // Canvas click → creation popup (only if not a pan)
-  svg.on('mousedown.bg', (ev) => { _gs.pointerDownAt = [ev.clientX, ev.clientY]; });
+  // Canvas right-click → creation popup
+  bgRect.on('contextmenu', (ev) => {
+    ev.preventDefault(); ev.stopPropagation();
+    _dgHideCreationPopup();
+    _dgHideLinkPopup();
+    const [cx, cy] = d3.pointer(ev, root.node());
+    _dgShowCreationPopup(ev.clientX, ev.clientY, cx, cy, seqId);
+  });
+  // Left click on canvas → deselect
   bgRect.on('click', (ev) => {
     ev.stopPropagation();
     _dgHideCreationPopup();
     _dgHideLinkPopup();
-    if (_gs.pointerDownAt) {
-      const dx = ev.clientX - _gs.pointerDownAt[0], dy = ev.clientY - _gs.pointerDownAt[1];
-      if (dx*dx + dy*dy > 25) return; // was a pan
-    }
-    const [cx, cy] = d3.pointer(ev, root.node());
-    _dgShowCreationPopup(ev.clientX, ev.clientY, cx, cy, seqId);
   });
 
   // Port mouse events for link creation (attached after render)
@@ -3719,7 +3720,7 @@ function _dgBuild(seqId) {
     if (!_gs.pendingLink.active) return;
     const [mx, my] = d3.pointer(ev, root.node());
     pendingPath.attr('d',
-      `M ${_gs.pendingLink.sx} ${_gs.pendingLink.sy} C ${_gs.pendingLink.sx} ${_gs.pendingLink.sy+50}, ${mx} ${my-50}, ${mx} ${my}`
+      `M ${_gs.pendingLink.sx} ${_gs.pendingLink.sy} C ${_gs.pendingLink.sx+60} ${_gs.pendingLink.sy}, ${mx-60} ${my}, ${mx} ${my}`
     ).attr('opacity',1);
   });
   svg.on('mouseup.port', (ev) => {
@@ -3727,13 +3728,13 @@ function _dgBuild(seqId) {
     _gs.pendingLink.active = false;
     pendingPath.attr('opacity',0);
     const [mx, my] = d3.pointer(ev, root.node());
-    // Find nearest input port (top of each node, at (n.x, n.y - NH/2))
+    // Find nearest input port (left of each node, at (n.x - NW/2, n.y))
     let nearest = null, nearestDist = 28;
     _gs.nodes.forEach(n => {
       if (n.id === _gs.pendingLink.sourceId) return;
       if (n._data.type === 'entry') return; // entry has no input port
-      const portY = n.y - NH/2;
-      const dist = Math.sqrt((n.x-mx)**2 + (portY-my)**2);
+      const portX = n.x - NW/2;
+      const dist = Math.sqrt((portX-mx)**2 + (n.y-my)**2);
       if (dist < nearestDist) { nearest = n; nearestDist = dist; }
     });
     if (nearest) _dgCreateLink(_gs.pendingLink.sourceId, nearest.id, seqId);
@@ -3762,8 +3763,8 @@ function _dgBuild(seqId) {
     linkG.selectAll('g.dg-link-grp').each(function(d) {
       const src = d.source, tgt = d.target;
       // Link: from output port (bottom) to input port (top)
-      const sx = src.x, sy = src.y + NH/2;
-      const tx = tgt.x, ty = tgt.y - NH/2;
+      const sx = src.x + NW/2, sy = src.y;
+      const tx = tgt.x - NW/2, ty = tgt.y;
       d3.select(this).selectAll('line')
         .attr('x1', sx).attr('y1', sy).attr('x2', tx).attr('y2', ty);
     });
@@ -3890,13 +3891,14 @@ function _dgRenderNodes(nodeG, nodes, sim, seqId) {
       g.append('title');
 
       // Input port (top center) — hidden for 'entry' type
+      // Input port (left center) — hidden for 'entry' type
       g.append('circle').attr('class','dg-port dg-port-in')
-        .attr('cx',0).attr('cy',-NH/2).attr('r',PR)
+        .attr('cx',-NW/2).attr('cy',0).attr('r',PR)
         .attr('fill','var(--bg)').attr('stroke-width',2);
 
-      // Output port (bottom center) — hidden for 'exit' type
+      // Output port (right center) — hidden for 'exit' type
       const outPort = g.append('circle').attr('class','dg-port dg-port-out')
-        .attr('cx',0).attr('cy',NH/2).attr('r',PR)
+        .attr('cx',NW/2).attr('cy',0).attr('r',PR)
         .attr('fill','var(--bg)').attr('stroke-width',2);
 
       // Port mousedown → start drawing link
@@ -3904,8 +3906,8 @@ function _dgRenderNodes(nodeG, nodes, sim, seqId) {
         ev.stopPropagation(); ev.preventDefault();
         _gs.pendingLink.active   = true;
         _gs.pendingLink.sourceId = d.id;
-        _gs.pendingLink.sx       = d.x;
-        _gs.pendingLink.sy       = d.y + NH/2;
+        _gs.pendingLink.sx       = d.x + NW/2;
+        _gs.pendingLink.sy       = d.y;
       });
 
       // Node drag (filter out port and text clicks)
