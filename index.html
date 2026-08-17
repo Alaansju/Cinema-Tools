@@ -4082,6 +4082,31 @@ function _dgShowEditPanel(nodeId, seqId) {
   if (!node) { panel.style.display = 'none'; return; }
 
   panel.style.display = 'flex';
+
+  // Entry/exit : panneau simplifié
+  if (node.type === 'entry' || node.type === 'exit') {
+    const allNodes = seq?.nodes || [];
+    const sameType = allNodes.filter(n => n.type === node.type);
+    const idx = sameType.findIndex(n => n.id === node.id) + 1;
+    const sceneId = seq?.scene_id || seqId;
+    const displayId = `${sceneId}-${node.type}-${idx}`;
+    panel.innerHTML = `
+      <div class="dlg-nep-header">
+        <span class="dlg-nep-title">${node.type}</span>
+        <button class="btn-ghost btn-sm" style="padding:2px 6px" onclick="_dgClosePanel()">✕</button>
+      </div>
+      <div class="dlg-nep-body">
+        <div>
+          <div class="dlg-nep-label">ID</div>
+          <div style="font-size:11px;font-family:monospace;color:var(--text2);word-break:break-all">${esc(displayId)}</div>
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <button class="btn-danger btn-sm" style="width:100%" onclick="_dgDeleteNode('${seqId}','${node.id}')">Supprimer</button>
+        </div>
+      </div>`;
+    return;
+  }
+
   const charOpts = _dlgChars().map(c => `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
   const typeOpts = ['dialogue','canon','event','branch','entry','exit'].map(t =>
     `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
