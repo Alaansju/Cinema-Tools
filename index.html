@@ -3599,10 +3599,9 @@ function renderDlgTable() {
 
 // Graph sub-state (rebuilt each render)
 let _gs = {
-  seqId: null, sim: null, selectedNodeId: null,
+  seqId: null, sim: null, tick: null, selectedNodeId: null,
   transform: null, nodes: [], linkData: [],
-  pendingLink: { active: false, sourceId: null, sx: 0, sy: 0 },
-  pointerDownAt: null
+  pendingLink: { active: false, sourceId: null, sx: 0, sy: 0, pendingSource: null },
 };
 
 function renderDlgNodeGraph(seqId) {
@@ -3636,7 +3635,7 @@ function renderDlgNodeGraph(seqId) {
     </div>
   </div>`;
 
-  _gs = { seqId, sim: null, selectedNodeId: null, transform: null, nodes: [], linkData: [], pendingLink: { active: false, sourceId: null, sx: 0, sy: 0 }, pointerDownAt: null };
+  _gs = { seqId, sim: null, tick: null, selectedNodeId: null, transform: null, nodes: [], linkData: [], pendingLink: { active: false, sourceId: null, sx: 0, sy: 0, pendingSource: null } };
 
   _dgBuild(seqId);
 }
@@ -3725,51 +3724,57 @@ function _dgBuild(seqId) {
   });
   svg.on('mouseup.port', (ev) => {
     if (!_gs.pendingLink.active) return;
+    const srcId = _gs.pendingLink.sourceId;
     _gs.pendingLink.active = false;
-    pendingPath.attr('opacity',0);
+    pendingPath.attr('opacity', 0);
     const [mx, my] = d3.pointer(ev, root.node());
-    // Find nearest input port (left of each node, at (n.x - NW/2, n.y))
-    let nearest = null, nearestDist = 28;
+    // Find nearest input port (left of node, at x - NW/2, y)
+    let nearest = null, nearestDist = 36;
     _gs.nodes.forEach(n => {
-      if (n.id === _gs.pendingLink.sourceId) return;
-      if (n._data.type === 'entry') return; // entry has no input port
-      const portX = n.x - NW/2;
-      const dist = Math.sqrt((portX-mx)**2 + (n.y-my)**2);
+      if (n.id === srcId || n._data.type === 'entry') return;
+      const dist = Math.sqrt((n.x - NW/2 - mx)**2 + (n.y - my)**2);
       if (dist < nearestDist) { nearest = n; nearestDist = dist; }
     });
-    if (nearest) _dgCreateLink(_gs.pendingLink.sourceId, nearest.id, seqId);
+    if (nearest) {
+      _dgCreateLink(srcId, nearest.id, seqId);
+    } else {
+      // Dropped on empty space → show creation popup and auto-link new node
+      _gs.pendingLink.pendingSource = srcId;
+      const svgRect = svg.node().getBoundingClientRect();
+      const t = _gs.transform || d3.zoomIdentity;
+      const cx = (ev.clientX - svgRect.left - t.x) / t.k;
+      const cy = (ev.clientY - svgRect.top  - t.y) / t.k;
+      _dgShowCreationPopup(ev.clientX, ev.clientY, cx, cy, seqId);
+    }
   });
-  // Cancel pending link if mouse leaves SVG
   svg.on('mouseleave.port', () => {
-    if (_gs.pendingLink.active) { _gs.pendingLink.active = false; pendingPath.attr('opacity',0); }
+    if (_gs.pendingLink.active) { _gs.pendingLink.active = false; pendingPath.attr('opacity', 0); }
   });
 
-  // Force simulation — soft so manual positions are respected
-  const sim = d3.forceSimulation(nodes)
-    .alphaDecay(0.04).velocityDecay(0.75)
-    .force('link',      d3.forceLink(linkData).id(d=>d.id).distance(150).strength(0.25))
-    .force('charge',    d3.forceManyBody().strength(-200))
-    .force('collision', d3.forceCollide(NH/2+15))
-    .force('cx',        d3.forceX(W/2).strength(0.02))
-    .force('cy',        d3.forceY(H/2).strength(0.02));
+  // Tick: update link and node positions
+  function tick() {
+    linkG.selectAll('g.dg-link-grp').each(function(d) {
+      const src = d.source, tgt = d.target;
+      if (!src?.x) return;
+      d3.select(this).selectAll('line')
+        .attr('x1', src.x + NW/2).attr('y1', src.y)
+        .attr('x2', tgt.x - NW/2).attr('y2', tgt.y);
+    });
+    nodeG.selectAll('.dg-node').attr('transform', d => `translate(${d.x},${d.y})`);
+  }
+  _gs.tick = tick;
 
+  // Collision-only simulation — brief initial layout then stops
+  const sim = d3.forceSimulation(nodes)
+    .alphaDecay(0.12).velocityDecay(0.92)
+    .force('collision', d3.forceCollide(72).strength(0.3))
+    .on('tick', tick);
   _gs.sim = sim;
+  setTimeout(() => { if (_gs.sim === sim) sim.stop(); }, 2500);
 
   _dgRenderLinks(linkG, linkData, seqId);
   _dgRenderNotes(noteG, seq, seqId);
-  _dgRenderNodes(nodeG, nodes, sim, seqId);
-
-  sim.on('tick', () => {
-    linkG.selectAll('g.dg-link-grp').each(function(d) {
-      const src = d.source, tgt = d.target;
-      // Link: from output port (bottom) to input port (top)
-      const sx = src.x + NW/2, sy = src.y;
-      const tx = tgt.x - NW/2, ty = tgt.y;
-      d3.select(this).selectAll('line')
-        .attr('x1', sx).attr('y1', sy).attr('x2', tx).attr('y2', ty);
-    });
-    nodeG.selectAll('.dg-node').attr('transform', d => `translate(${d.x},${d.y})`);
-  });
+  _dgRenderNodes(nodeG, nodes, seqId);
 }
 
 function _dgRenderLinks(linkG, linkData, seqId) {
@@ -3800,19 +3805,23 @@ function _dgRenderLinks(linkG, linkData, seqId) {
   });
 }
 
+function _dgNoteH(text) {
+  return Math.max(80, 28 + Math.max(2, Math.ceil((text||'').length / 20)) * 15);
+}
+
 function _dgRenderNotes(noteG, seq, seqId) {
   noteG.selectAll('.dlg-sticky').remove();
   const notes = seq?.canvas_notes || [];
-  const noteW = 150, noteH = 100;
+  const noteW = 150;
 
   notes.forEach(note => {
+    let noteH = _dgNoteH(note.text);
     const g = noteG.append('g').attr('class','dlg-sticky')
       .attr('transform',`translate(${note.x||0},${note.y||0})`);
 
-    g.append('rect').attr('class','dlg-sticky-body')
+    const bodyRect = g.append('rect').attr('class','dlg-sticky-body')
       .attr('width', noteW).attr('height', noteH).attr('rx', 4);
 
-    // Header bar (drag handle)
     g.append('rect').attr('class','dlg-sticky-header')
       .attr('width', noteW).attr('height', 18).attr('rx', 4);
 
@@ -3821,7 +3830,6 @@ function _dgRenderNotes(noteG, seq, seqId) {
       .attr('cursor','pointer').text('✕')
       .on('click', () => { _dgDeleteNote(seqId, note.id); });
 
-    // Editable text via foreignObject
     const fo = g.append('foreignObject')
       .attr('x', 2).attr('y', 20).attr('width', noteW-4).attr('height', noteH-22);
     const ta = fo.append('xhtml:textarea')
@@ -3833,10 +3841,14 @@ function _dgRenderNotes(noteG, seq, seqId) {
       .text(note.text || '');
     ta.on('input', function() {
       note.text = this.value; markModified();
+      noteH = _dgNoteH(this.value);
+      bodyRect.attr('height', noteH);
+      fo.attr('height', noteH - 22);
+      this.style.height = 'auto';
+      this.style.height = this.scrollHeight + 'px';
     });
-    ta.on('mousedown', ev => ev.stopPropagation()); // prevent drag on text edit
+    ta.on('mousedown', ev => ev.stopPropagation());
 
-    // Drag note header
     g.call(d3.drag()
       .filter(ev => ev.target.tagName !== 'textarea')
       .on('start', ev => { ev.sourceEvent?.stopPropagation(); })
@@ -3849,35 +3861,25 @@ function _dgRenderNotes(noteG, seq, seqId) {
   });
 }
 
-function _dgRenderNodes(nodeG, nodes, sim, seqId) {
-  const NW = 160, NH = 72, PR = 6;
+function _dgRenderNodes(nodeG, nodes, seqId) {
+  const NW = 160, PR = 6;
 
   nodeG.selectAll('.dg-node').data(nodes, d => d.id).join(
     enter => {
-      const g = enter.append('g').attr('class','dg-node');
+      const g = enter.append('g').attr('class','dg-node')
+        .attr('data-id', d => d.id);
 
-      // Background
       g.append('rect').attr('class','dg-node-bg')
-        .attr('width',NW).attr('height',NH).attr('x',-NW/2).attr('y',-NH/2).attr('rx',8);
+        .attr('width',NW).attr('x',-NW/2).attr('rx',8);
 
-      // Speaker color bar
       g.append('rect').attr('class','dg-speaker-bar')
-        .attr('width',4).attr('height',NH-10).attr('x',-NW/2+3).attr('y',-NH/2+5).attr('rx',2);
+        .attr('width',4).attr('x',-NW/2+3).attr('rx',2);
 
-      // Type icon (top-right, small)
-      g.append('text').attr('class','dg-type-icon')
-        .attr('x',NW/2-8).attr('y',-NH/2+15)
-        .attr('text-anchor','end').attr('font-size','12px').attr('fill','var(--text3)');
-
-      // Speaker name
       g.append('text').attr('class','dg-speaker-name')
-        .attr('x',-NW/2+11).attr('y',-NH/2+16)
-        .attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text2)');
+        .attr('x',-NW/2+11).attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text2)');
 
-      // Inline text editing via foreignObject
       const fo = g.append('foreignObject').attr('class','dg-node-fo')
-        .attr('x',-NW/2+10).attr('y',-NH/2+23)
-        .attr('width',NW-20).attr('height',NH-34);
+        .attr('x',-NW/2+10).attr('width',NW-20);
       fo.append('xhtml:div').attr('class','dg-node-text-div')
         .attr('contenteditable','true')
         .on('mousedown', ev => ev.stopPropagation())
@@ -3886,22 +3888,31 @@ function _dgRenderNodes(nodeG, nodes, sim, seqId) {
           ev.stopPropagation();
           d._data.text_fr = this.textContent || '';
           markModified();
+          // Auto-resize node
+          const nodeEl = nodeG.selectAll('.dg-node').filter(n => n.id === d.id).node();
+          if (nodeEl) { _dgApplyNodeStyle(d3.select(nodeEl), d, seqId); _gs.tick?.(); }
         });
 
       g.append('title');
 
-      // Input port (top center) — hidden for 'entry' type
-      // Input port (left center) — hidden for 'entry' type
+      // Delete button (top-right)
+      g.append('text').attr('class','dg-node-del')
+        .attr('x',NW/2-6).attr('text-anchor','end')
+        .attr('font-size','11px').attr('fill','var(--text3)').attr('cursor','pointer')
+        .text('✕')
+        .on('mousedown', ev => ev.stopPropagation())
+        .on('click', (ev, d) => { ev.stopPropagation(); _dgDeleteNode(_gs.seqId, d.id); });
+
+      // Input port (left center)
       g.append('circle').attr('class','dg-port dg-port-in')
         .attr('cx',-NW/2).attr('cy',0).attr('r',PR)
         .attr('fill','var(--bg)').attr('stroke-width',2);
 
-      // Output port (right center) — hidden for 'exit' type
+      // Output port (right center)
       const outPort = g.append('circle').attr('class','dg-port dg-port-out')
         .attr('cx',NW/2).attr('cy',0).attr('r',PR)
         .attr('fill','var(--bg)').attr('stroke-width',2);
 
-      // Port mousedown → start drawing link
       outPort.on('mousedown', (ev, d) => {
         ev.stopPropagation(); ev.preventDefault();
         _gs.pendingLink.active   = true;
@@ -3910,26 +3921,24 @@ function _dgRenderNodes(nodeG, nodes, sim, seqId) {
         _gs.pendingLink.sy       = d.y;
       });
 
-      // Node drag (filter out port and text clicks)
+      // Drag — purely manual, no simulation involvement
       g.call(d3.drag()
         .filter(ev => !ev.target.classList.contains('dg-port') &&
-                      ev.target.tagName !== 'div' && ev.target.tagName !== 'foreignObject')
-        .on('start', (ev, d) => {
-          ev.sourceEvent?.stopPropagation();
-          if (!ev.active) sim.alphaTarget(0.1).restart();
-          d.fx = d.x; d.fy = d.y;
+                      !ev.target.classList.contains('dg-node-del') &&
+                      ev.target.tagName !== 'div')
+        .on('start', (ev) => { ev.sourceEvent?.stopPropagation(); })
+        .on('drag', (ev, d) => {
+          d.x = ev.x; d.y = ev.y;
+          _gs.tick?.();
         })
-        .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
         .on('end', (ev, d) => {
-          if (!ev.active) sim.alphaTarget(0);
           d._data.x = d.x; d._data.y = d.y;
-          d.fx = null; d.fy = null;
           markModified();
         }));
 
-      // Node click → select (skip if port or text)
       g.on('click', (ev, d) => {
         if (ev.target.classList.contains('dg-port')) return;
+        if (ev.target.classList.contains('dg-node-del')) return;
         if (ev.target.tagName === 'div') return;
         ev.stopPropagation();
         _dgHideCreationPopup();
@@ -3941,28 +3950,45 @@ function _dgRenderNodes(nodeG, nodes, sim, seqId) {
   ).each(function(d) { _dgApplyNodeStyle(d3.select(this), d, seqId); });
 }
 
+function _dgNodeH(nd) {
+  const t = nd.text_fr || '';
+  const lines = Math.max(2, Math.ceil(t.length / 22));
+  return Math.max(64, 36 + lines * 14);
+}
+
 function _dgApplyNodeStyle(g, d, seqId) {
-  const NW = 160, NH = 72;
+  const NW = 160;
   const nd = d._data;
+  const nh = _dgNodeH(nd);
+  d.nh = nh;
+
   const char = _charById(nd.speaker_id);
   const vColor = _dlgVersionColor(nd.version || 'all');
   const isEntry = nd.type === 'entry', isExit = nd.type === 'exit';
   const isSelected = d.id === _gs.selectedNodeId;
 
-  const typeIcons = { dialogue:'💬', canon:'★', event:'⚡', branch:'⋔', entry:'▶', exit:'■' };
-
   g.select('.dg-node-bg')
-    .attr('fill', isEntry ? '#1a3525' : isExit ? '#351a1a' : (char?.color ? char.color+'18' : 'var(--bg2)'))
+    .attr('height', nh).attr('y', -nh/2)
+    .attr('fill', isEntry ? 'rgba(82,201,123,0.15)' : isExit ? 'rgba(224,82,82,0.15)' : (char?.color ? char.color+'18' : 'var(--bg2)'))
     .attr('stroke', isSelected ? 'var(--accent)' : isEntry ? '#52c97b' : isExit ? '#e05252' : vColor)
     .attr('stroke-width', isSelected ? 3 : 2);
 
-  g.select('.dg-speaker-bar').attr('fill', char?.color || '#666');
-  g.select('.dg-type-icon').text(typeIcons[nd.type] || '💬');
-  g.select('.dg-speaker-name').text(char?.name || nd.speaker_id || (isEntry ? 'ENTRÉE' : isExit ? 'FIN' : ''));
+  g.select('.dg-speaker-bar')
+    .attr('height', nh - 10).attr('y', -nh/2 + 5)
+    .attr('fill', char?.color || (isEntry ? '#52c97b' : isExit ? '#e05252' : '#666'));
+
+  g.select('.dg-speaker-name')
+    .attr('y', -nh/2 + 16)
+    .text(char?.name || nd.speaker_id || (isEntry ? 'ENTRÉE' : isExit ? 'FIN' : ''));
+
+  g.select('.dg-node-fo')
+    .attr('y', -nh/2 + 23).attr('height', nh - 34);
 
   const textDiv = g.select('.dg-node-fo div');
   if (!textDiv.empty() && document.activeElement !== textDiv.node())
     textDiv.text(nd.text_fr || '');
+
+  g.select('.dg-node-del').attr('y', -nh/2 + 14);
 
   g.select('.dg-port-in')
     .attr('display', isEntry ? 'none' : null)
@@ -4158,6 +4184,13 @@ function _dgCreateNodeAt(seqId, x, y, type, speakerId) {
     rhythm_duration_ms: 0, rhythm_syllables: 0,
     links: [], conditions: {}, x, y
   });
+  // Auto-link if creation was triggered from a port drag
+  const autoSrc = _gs.pendingLink.pendingSource;
+  if (autoSrc) {
+    _gs.pendingLink.pendingSource = null;
+    const srcNode = (seq.nodes||[]).find(n => n.id === autoSrc);
+    if (srcNode) { if (!srcNode.links) srcNode.links = []; srcNode.links.push({ target: id, version: 'all' }); }
+  }
   markModified();
   renderDlgNodeGraph(seqId);
   setTimeout(() => _dgSelectNode(id, seqId), 60);
@@ -4179,7 +4212,8 @@ function _dgCreateLink(sourceId, targetId, seqId) {
 }
 
 function _dgRebuildLinks(seqId) {
-  const seq = _seqById(seqId || _gs.seqId);
+  const sid = seqId || _gs.seqId;
+  const seq = _seqById(sid);
   const rawNodes = seq?.nodes || [];
   const nodeSet = new Set(_gs.nodes.map(n => n.id));
   const linkData = [];
@@ -4190,9 +4224,8 @@ function _dgRebuildLinks(seqId) {
     });
   });
   _gs.linkData = linkData;
-  _gs.sim?.force('link').links(linkData);
-  _gs.sim?.alpha(0.2).restart();
-  _dgRenderLinks(d3.select('#dg-links'), linkData, seqId || _gs.seqId);
+  _dgRenderLinks(d3.select('#dg-links'), linkData, sid);
+  _gs.tick?.();
 }
 
 // ── Link version popup ────────────────────────────────────────────
