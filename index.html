@@ -3319,7 +3319,8 @@ function dlgSwitchView(view) {
   if (view === 'list')        renderDlgList();
   else if (view === 'editor') renderDlgEditor(state.selectedSeqId);
   else if (view === 'table')  renderDlgTable();
-  else if (view === 'graph')  renderDlgNodeGraph(state.selectedSeqId);
+  else if (view === 'graph')  { renderDlgNodeGraph(state.selectedSeqId); }
+  if (view !== 'graph') _dgStopKeyboardShortcuts();
 }
 
 function renderDialogues() {
@@ -3607,6 +3608,7 @@ let _gs = {
 function renderDlgNodeGraph(seqId) {
   const viewArea = document.getElementById('dlg-view-area');
   if (!viewArea) return;
+  _dgStartKeyboardShortcuts();
 
   const seqs = _dlgSeqs();
   if (!seqId && seqs.length) seqId = seqs[0].id;
@@ -3869,7 +3871,7 @@ function _dgRenderNotes(noteG, seq, seqId) {
 }
 
 function _dgRenderNodes(nodeG, nodes, seqId) {
-  const NW = 160, CR = 30, PR = 6; // CR = circle radius for entry/exit
+  const NW = 160, CR = 38, PR = 6; // CR = circle radius for entry/exit
 
   nodeG.selectAll('.dg-node').data(nodes, d => d.id).join(
     enter => {
@@ -3971,7 +3973,7 @@ function _dgApplyNodeSizeOnly(g, nh) {
 }
 
 function _dgApplyNodeStyle(g, d, seqId) {
-  const NW = 160, CR = 30;
+  const NW = 160, CR = 38;
   const nd = d._data;
   const isCircle = nd.type === 'entry' || nd.type === 'exit';
   const isEntry = nd.type === 'entry', isExit = nd.type === 'exit';
@@ -4371,6 +4373,74 @@ function _dgDeleteLink(seqId, nodeId, linkIdx) {
 
 function _dgDeleteSelected() {
   if (_gs.selectedNodeId) _dgDeleteNode(_gs.seqId, _gs.selectedNodeId);
+}
+
+// ── Graph clipboard & keyboard shortcuts ─────────────────────────────────────
+
+let _dgClipboard = null; // { nodeData: {...} }
+
+function _dgCopyNode(nodeId) {
+  const seq = _seqById(_gs.seqId);
+  const nd = (seq?.nodes||[]).find(n => n.id === nodeId);
+  if (!nd) return;
+  // Deep clone without links
+  _dgClipboard = { nodeData: JSON.parse(JSON.stringify({ ...nd, links: [] })) };
+}
+
+function _dgPasteNode(seqId) {
+  if (!_dgClipboard) return;
+  const seq = _seqById(seqId);
+  if (!seq) return;
+  if (!seq.nodes) seq.nodes = [];
+  const t = _gs.transform || d3.zoomIdentity;
+  const wrap = document.getElementById('dlg-graph-canvas-wrap');
+  const W = wrap?.clientWidth || 800, H = wrap?.clientHeight || 500;
+  const cx = (W/2 - t.x) / t.k + 40;
+  const cy = (H/2 - t.y) / t.k + 40;
+  const newId = 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+  const newNode = { ..._dgClipboard.nodeData, id: newId, links: [], x: cx, y: cy,
+    locale_key: _generateLocaleKey(seqId, newId) };
+  seq.nodes.push(newNode);
+  markModified();
+  renderDlgNodeGraph(seqId);
+  setTimeout(() => _dgSelectNode(newId, seqId), 60);
+}
+
+function _dgDuplicateNode(nodeId, seqId) {
+  _dgCopyNode(nodeId);
+  _dgPasteNode(seqId);
+}
+
+// Single keydown listener for the graph (active only when graph view is open)
+function _dgKeyHandler(e) {
+  // Skip if focus is on an input/textarea/contenteditable
+  const tag = document.activeElement?.tagName;
+  const isEditing = tag === 'INPUT' || tag === 'TEXTAREA' ||
+    document.activeElement?.isContentEditable;
+  if (isEditing) return;
+
+  const seqId = _gs.seqId;
+  const selId = _gs.selectedNodeId;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selId) { e.preventDefault(); _dgDeleteNode(seqId, selId); }
+  } else if (e.ctrlKey && e.key === 'd') {
+    if (selId) { e.preventDefault(); _dgDuplicateNode(selId, seqId); }
+  } else if (e.ctrlKey && e.key === 'c') {
+    if (selId) { e.preventDefault(); _dgCopyNode(selId); toast('Nœud copié', 'info'); }
+  } else if (e.ctrlKey && e.key === 'x') {
+    if (selId) { e.preventDefault(); _dgCopyNode(selId); _dgDeleteNode(seqId, selId); }
+  } else if (e.ctrlKey && e.key === 'v') {
+    if (_dgClipboard) { e.preventDefault(); _dgPasteNode(seqId); }
+  }
+}
+
+function _dgStartKeyboardShortcuts() {
+  document.removeEventListener('keydown', _dgKeyHandler);
+  document.addEventListener('keydown', _dgKeyHandler);
+}
+function _dgStopKeyboardShortcuts() {
+  document.removeEventListener('keydown', _dgKeyHandler);
 }
 
 function _dgAddNote() {
