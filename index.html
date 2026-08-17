@@ -4021,6 +4021,16 @@ function _dgApplyNodeSizeOnly(g, nh) {
   g.select('.dg-node-del').attr('y', -nh/2+14);
 }
 
+function _dgNodeEffectiveVersion(nodeId) {
+  const incoming = (_gs.linkData || []).filter(lk => {
+    const tid = typeof lk.target === 'object' ? lk.target.id : lk.target;
+    return tid === nodeId;
+  });
+  if (!incoming.length) return 'all';
+  const vers = [...new Set(incoming.map(lk => lk.version || 'all'))];
+  return vers.length === 1 ? vers[0] : vers.join('→');
+}
+
 function _dgApplyNodeStyle(g, d, seqId) {
   const NW = 160, CR = 38;
   const nd = d._data;
@@ -4028,7 +4038,8 @@ function _dgApplyNodeStyle(g, d, seqId) {
   const isEntry = nd.type === 'entry', isExit = nd.type === 'exit';
   const isSelected = d.id === _gs.selectedNodeId;
   const char = _charById(nd.speaker_id);
-  const vColor = _dlgVersionColor(nd.version || 'all');
+  const effVer = _dgNodeEffectiveVersion(d.id);
+  const vColor = effVer.includes('→') ? 'var(--text3)' : _dlgVersionColor(effVer);
 
   if (isCircle) {
     // ── Circle node (entry / exit) ──
@@ -4159,8 +4170,8 @@ function _dgShowEditPanel(nodeId, seqId) {
   const charOpts = _dlgChars().map(c => `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
   const typeOpts = ['dialogue','canon','event','branch','entry','exit'].map(t =>
     `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
-  const verOpts = ['all','duo','trio','quatuor'].map(v =>
-    `<option value="${v}" ${v===(node.version||'all')?'selected':''}>${v}</option>`).join('');
+  const effVer = _dgNodeEffectiveVersion(nodeId);
+  const effVerColor = effVer.includes('→') ? 'var(--text3)' : _dlgVersionColor(effVer);
   const outLinks = (node.links||[]);
   const linksHtml = outLinks.length ? outLinks.map((lk,i) => {
     const tNode = (seq.nodes||[]).find(n=>n.id===lk.target);
@@ -4185,9 +4196,7 @@ function _dgShowEditPanel(nodeId, seqId) {
       </div>
       <div>
         <div class="dlg-nep-label">Version</div>
-        <select class="edit-select" style="width:100%;font-size:12px"
-          onchange="_dgSaveNodeField('${seqId}','${nodeId}','version',this.value);_dgRefreshGraph('${seqId}')">
-          ${verOpts}</select>
+        <div style="font-size:12px;font-weight:600;color:${effVerColor};padding:3px 0">${effVer}</div>
       </div>
       <div>
         <div class="dlg-nep-label">Personnage</div>
@@ -4332,7 +4341,7 @@ function _dgCreateNodeAt(seqId, x, y, type, speakerId) {
   _gs.pendingLink.pendingIsInput = false;
 
   const srcNode = autoSrc ? (seq.nodes||[]).find(n => n.id === autoSrc) : null;
-  const inheritedVersion = srcNode?.version || 'all';
+  const inheritedVersion = autoSrc ? _dgNodeEffectiveVersion(autoSrc) : 'all';
 
   const id = 'node_' + Date.now() + '_' + Math.floor(Math.random()*1000);
   seq.nodes.push({
@@ -4370,7 +4379,7 @@ function _dgCreateLink(sourceId, targetId, seqId) {
   if (!src) return;
   if (!src.links) src.links = [];
   if (src.links.some(lk => lk.target === targetId)) { toast('Lien déjà existant'); return; }
-  src.links.push({ target: targetId, version: src.version || 'all' });
+  src.links.push({ target: targetId, version: _dgNodeEffectiveVersion(sourceId) });
   markModified();
   _dgRebuildLinks(seqId);
   toast('Lien créé', 'success');
