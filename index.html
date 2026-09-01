@@ -1081,7 +1081,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
     </div>
     <div class="field-group" style="margin-top:12px">
       <div class="field-label">Fichier de données (chemin dans le repo)</div>
-      <input id="gh-path-input" class="edit-input" value="tools/story_data.json" style="width:100%">
+      <input id="gh-path-input" class="edit-input" value="Assets/Resources/Data/story_data.json" style="width:100%">
     </div>
     <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end">
       <button class="btn-ghost" onclick="closeGhSettings()">Annuler</button>
@@ -2082,7 +2082,7 @@ const GH_REPO  = 'Cinema';
 function ghConfig() {
   return {
     token: localStorage.getItem('se-gh-token') || '',
-    path:  localStorage.getItem('se-gh-path')  || 'tools/story_data.json',
+    path:  localStorage.getItem('se-gh-path')  || 'Assets/Resources/Data/story_data.json',
   };
 }
 
