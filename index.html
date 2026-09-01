@@ -1681,10 +1681,18 @@ function deleteScene() {
   toast('Scène supprimée');
 }
 
+function _filmPrefix() {
+  const genre = currentFilm()?.genre || '';
+  const map = { animation: 'A', horreur: 'H', romance: 'R', action: 'S', realite: 'RE' };
+  return map[genre] || genre.slice(0,2).toUpperCase();
+}
+
 function addScene() {
   const id = 'scene-' + Date.now();
+  const prefix = _filmPrefix();
+  const nextNum = (currentFilm()?.scenes?.length || 0) + 1;
   const newScene = {
-    id, num: 'X-X-00', title: 'Nouvelle scène', branch: 'main',
+    id, num: `${prefix}-${nextNum}`, title: 'Nouvelle scène', branch: 'main',
     type: 'exploration', unlock_conditions: {},
     roles_involved: [], dialogue_sequences: [],
     description: '', design_notes: '', references: '',
