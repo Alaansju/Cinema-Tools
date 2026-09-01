@@ -101,6 +101,19 @@ nav {
 .tab-btn:hover { color: var(--text); }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+/* ── Film Selector ─────────────────────────────────────────────── */
+.film-selector {
+  display: flex; align-items: center; gap: 4px; padding: 6px 14px;
+  background: var(--bg); border-bottom: 2px solid var(--border); flex-shrink: 0;
+}
+.film-btn {
+  padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: transparent; color: var(--text2);
+  cursor: pointer; transition: all .15s; letter-spacing: .02em;
+}
+.film-btn:hover { background: var(--bg2); color: var(--text); }
+.film-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
 /* ── Layout ────────────────────────────────────────────────────── */
 .workspace { display: flex; flex: 1; overflow: hidden; position: relative; }
 .tab-content { display: none; flex: 1; overflow: hidden; }
@@ -770,12 +783,13 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   </div>
 </header>
 
+<div class="film-selector" id="film-selector"><!-- populated by JS --></div>
+
 <nav>
   <button class="tab-btn active" data-tab="scenes">Scènes</button>
   <button class="tab-btn" data-tab="scenario">Scénario</button>
   <button class="tab-btn" data-tab="graph">Graphe</button>
   <button class="tab-btn" data-tab="characters">Personnages</button>
-  <button class="tab-btn" data-tab="abilities">Capacités</button>
   <button class="tab-btn" data-tab="dialogues">💬 Dialogues</button>
   <button class="tab-btn" data-tab="notes">📝 Notes</button>
 </nav>
@@ -789,13 +803,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
       <div class="filter-sep"></div>
       <button class="filter-chip filter-active" data-filter="branch" data-value="main" onclick="toggleFilter(this)">Main</button>
       <button class="filter-chip filter-active" data-filter="branch" data-value="bonus" onclick="toggleFilter(this)">Bonus</button>
-      <div class="filter-sep"></div>
-      <button class="filter-chip act-intro filter-active" data-filter="act" data-value="1" onclick="toggleFilter(this)">Intro</button>
-      <button class="filter-chip act-ch1 filter-active" data-filter="act" data-value="2" onclick="toggleFilter(this)">Ch. 1</button>
-      <button class="filter-chip act-ch2 filter-active" data-filter="act" data-value="3" onclick="toggleFilter(this)">Ch. 2</button>
-      <button class="filter-chip act-ch3 filter-active" data-filter="act" data-value="4" onclick="toggleFilter(this)">Ch. 3</button>
-      <button class="filter-chip act-ch4 filter-active" data-filter="act" data-value="5" onclick="toggleFilter(this)">Ch. 4</button>
-      <button class="filter-chip act-ch5 filter-active" data-filter="act" data-value="6" onclick="toggleFilter(this)">Ch. 5</button>
       <span class="filter-count" id="scenes-count"></span>
     </div>
     <div class="table-wrap">
@@ -804,7 +811,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
           <tr>
             <th>Num</th>
             <th>Titre</th>
-            <th>Chapitre</th>
             <th>Type</th>
             <th>Flags</th>
             <th>Conditions</th>
@@ -880,12 +886,9 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
         </div>
       </div>
       <div class="graph-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-intro)"></div>Intro</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch1)"></div>Ch. 1</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch2)"></div>Ch. 2</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch3)"></div>Ch. 3</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch4)"></div>Ch. 4</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--c-ch5)"></div>Ch. 5</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Scène</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--climax)"></div>Climax</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--final)"></div>Fin</div>
       </div>
       <div class="graph-controls">
         <button class="btn-ghost btn-sm" onclick="graphZoom(1.25)">+</button>
@@ -931,12 +934,8 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
     </div>
   </div>
 
-  <!-- ── TAB CAPACITÉS ─────────────────────────────────────── -->
-  <div class="tab-content" id="tab-abilities">
-    <div class="filters">
-      <input class="search-input" id="abil-search" placeholder="Rechercher…" oninput="renderAbilitiesTable()">
-      <span class="filter-count" id="abils-count"></span>
-    </div>
+  <!-- ── TAB CAPACITÉS : supprimé ── -->
+  <div class="tab-content" id="tab-abilities" style="display:none">
     <div class="table-wrap" >
       <table>
         <thead>
@@ -973,32 +972,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
       <div class="scenario-topbar">
         <label>Synopsis</label>
         <textarea id="scenario-synopsis" placeholder="Vue d'ensemble de l'histoire, thèmes, intentions narratives…" oninput="saveScenarioSynopsis()"></textarea>
-        <div class="scenario-act-synopses" style="flex-wrap:wrap;gap:6px">
-          <div class="act-synopsis-field">
-            <label class="act-synopsis-label act1-label">Intro</label>
-            <textarea id="scenario-synopsis-act1" placeholder="Introduction…" oninput="saveActSynopsis(1)"></textarea>
-          </div>
-          <div class="act-synopsis-field">
-            <label class="act-synopsis-label act2-label">Chapitre 1</label>
-            <textarea id="scenario-synopsis-act2" placeholder="Chapitre 1…" oninput="saveActSynopsis(2)"></textarea>
-          </div>
-          <div class="act-synopsis-field">
-            <label class="act-synopsis-label act3-label">Chapitre 2</label>
-            <textarea id="scenario-synopsis-act3" placeholder="Chapitre 2…" oninput="saveActSynopsis(3)"></textarea>
-          </div>
-          <div class="act-synopsis-field">
-            <label class="act-synopsis-label act4-label">Chapitre 3</label>
-            <textarea id="scenario-synopsis-act4" placeholder="Chapitre 3…" oninput="saveActSynopsis(4)"></textarea>
-          </div>
-          <div class="act-synopsis-field">
-            <label class="act-synopsis-label act5-label">Chapitre 4</label>
-            <textarea id="scenario-synopsis-act5" placeholder="Chapitre 4…" oninput="saveActSynopsis(5)"></textarea>
-          </div>
-          <div class="act-synopsis-field">
-            <label class="act-synopsis-label act6-label">Chapitre 5</label>
-            <textarea id="scenario-synopsis-act6" placeholder="Chapitre 5…" oninput="saveActSynopsis(6)"></textarea>
-          </div>
-        </div>
       </div>
       <div class="tl-scroll">
         <div class="tl-rows" id="tl-rows"></div>
@@ -1076,17 +1049,6 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
         <option value="">— Aucune scène —</option>
       </select>
     </div>
-    <div>
-      <div class="dlg-nep-label">Chapitre</div>
-      <select class="edit-select" id="scm-act" style="width:100%">
-        <option value="1">Intro</option>
-        <option value="2">Chapitre 1</option>
-        <option value="3">Chapitre 2</option>
-        <option value="4">Chapitre 3</option>
-        <option value="5">Chapitre 4</option>
-        <option value="6">Chapitre 5</option>
-      </select>
-    </div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="_closeCreateSeqModal()">Annuler</button>
       <button class="btn-primary" onclick="confirmCreateSeq()">Créer</button>
@@ -1135,26 +1097,30 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 // ═══════════════════════════════════════════════════════════════
 // DEFAULT DATA (embedded from story_data.json)
 // ═══════════════════════════════════════════════════════════════
-const DEFAULT_DATA = {"meta":{"version":"1.0.0","title":"Les Poissons qui tombent du ciel","last_modified":"2026-08-17"},"dialogue_sequences":[],"scenes":[{"id":"casting-00","num":"1-C-00","title":"Casting","group":"CASTING","branch":"main","players_min":1,"players_max":4,"type":"intro","unlock_conditions":{},"roles_involved":[],"description":"Tutoriel de sélection des acteurs. Chaque joueur choisit son acteur sans costume ni rôle défini. Introduction aux contrôles de base.","design_notes":"Aucun ennemi, aucun obstacle. Durée estimée : 2-3 min. Sert à familiariser les joueurs avec les déplacements, sauts et interactions avant l'attribution des rôles.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-01","num":"1-P-01","title":"Les eaux calmes","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"AND":["casting-00"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Deux poissons évoluent paisiblement dans la rivière. Quelque chose d'étrange trouble la surface de l'eau.","design_notes":"Introduction à la nage coopérative. Les deux joueurs doivent rester dans le même courant pour avancer. Durée estimée : 5 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-02","num":"1-P-02","title":"Remontée du courant","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["poissons-01"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop"],"description":"Les poissons remontent le courant pour comprendre d'où viennent les perturbations. Un troisième poisson les rejoint.","design_notes":"Obstacles : rochers, filets de pêche. Méca coop : courant qui ralentit si les joueurs se séparent. Durée : 6 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-03","num":"1-P-03","title":"La banc de poissons","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-02"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Les quatre poissons se réunissent. Ensemble, ils explorent une zone inconnue de la rivière.","design_notes":"Premier niveau à 4 poissons. Méca : formation en banc = bonus de vitesse. Durée : 7 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-04","num":"1-P-04","title":"La première chute","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["poissons-03"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Un poisson tombe du ciel et s'écrase dans la rivière. Le groupe doit l'éviter puis comprendre ce qui se passe.","design_notes":"Fin d'acte 1 côté poissons. Objets tombants : danger + puzzles. Le joueur doit guider le banc en sécurité. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"poissons-05","num":"1-P-05","title":"Remonter à la surface","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["poissons-04"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Les poissons principaux remontent à la surface pour la première fois. Ils aperçoivent le village et les villageois paniqués.","design_notes":"DÉBLOQUE L'ARC VILLAGEOIS. Transition vers la surface, mécanique d'air limitée. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-06","num":"1-P-06","title":"La bulle de protection","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["poissons-05"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Bulle découvre sa capacité à créer des bulles d'air. Les poissons peuvent désormais explorer hors de l'eau brièvement.","design_notes":"DÉBLOQUE CAPACITÉ BULLE. Nouveau type de plateforme : bulle rebondissante. Chrono hors de l'eau. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-07","num":"1-P-07","title":"Le pont de bois","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-06"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Les poissons tentent de traverser un pont en bois enjambant la rivière. Ils croisent des villageois pour la première fois.","design_notes":"Première interaction poissons-villageois sans coordination. Bulle obligatoire pour atteindre les zones sèches. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-08","num":"1-P-08","title":"Sauver les saumons","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-07"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Des poissons tombés du ciel sont piégés en dehors de l'eau. Le groupe doit les ramener à la rivière avant qu'ils meurent.","design_notes":"Méca time-pressure : barre de vie des saumons. Coordination requise : un joueur porte, l'autre trace le chemin. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"poissons-09","num":"1-P-09","title":"La source cachée","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["poissons-08"]},"roles_involved":["poisson-flip","poisson-flap"],"description":"Les poissons découvrent la source du phénomène : un portail aquatique caché sous le village. Climax émotionnel.","design_notes":"Acte 3 poissons. Zone très dangereuse, objets tombants continus. Les joueurs doivent alterner abri et avancée. Durée : 12 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"poissons-10","num":"1-P-10","title":"Hors de l'eau","group":"POISSONS","branch":"main","players_min":2,"players_max":4,"type":"fuite","unlock_conditions":{"AND":["poissons-09"]},"roles_involved":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"description":"Les poissons sortent définitivement de l'eau pour rejoindre les autres groupes. Fin de l'arc indépendant.","design_notes":"DÉBLOQUE ARC MIXTE (avec conditions). Chrono hors de l'eau permanent, ressources bulle épuisables. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"villageois-01","num":"1-V-01","title":"Un matin ordinaire","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"AND":["poissons-05"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre vivent leur routine dans le village. Leur dynamique amoureuse est introduite en douceur.","design_notes":"Introduction gameplay villageois : chapeau, attaque. Pas de danger direct. Durée : 5 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"villageois-02","num":"1-V-02","title":"Les amoureux du marché","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["villageois-01"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse"],"description":"Au marché du village, des étrangetés se multiplient. Odette raconte des rumeurs inquiétantes.","design_notes":"Introduction lancer de chapeau comme méca exploration. Puzzles environnementaux. Durée : 6 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"villageois-03","num":"1-V-03","title":"Il pleut des poissons","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["villageois-02"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Des poissons commencent à tomber du ciel. Le village panique. Les quatre villageois réagissent chacun à leur façon.","design_notes":"Fin acte 1 côté villageois. Pluie de poissons = obstacles dynamiques. Les joueurs ont des réactions différentes (compétition César/Oscar). Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":1},{"id":"villageois-04","num":"1-V-04","title":"Évacuation du village","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"fuite","unlock_conditions":{"AND":["villageois-03"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Le village doit être évacué. Les villageois doivent s'organiser — ou se mettre des bâtons dans les roues pour gagner plus de récompenses.","design_notes":"Méca trahison : possibilité de ralentir les autres pour scorer des Oscars. NPCs à sauver = points bonus. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-05","num":"1-V-05","title":"L'enquête au grenier","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["villageois-04"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre explorent le grenier abandonné du village. Ils trouvent des indices sur l'origine du phénomène.","design_notes":"DÉBLOQUE L'ARC FBI. Puzzles de déduction. Premiers documents à collecter. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-06","num":"1-V-06","title":"La cérémonie des Césars","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["villageois-05"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Malgré la catastrophe, les villageois organisent une cérémonie improvisée. Chacun rivalise pour obtenir les meilleures récompenses.","design_notes":"Pic de compétition interne. Système de score individuel visible. Coopération et sabotage en tension. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-07","num":"1-V-07","title":"Séparation forcée","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"fuite","unlock_conditions":{"AND":["villageois-06"]},"roles_involved":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"description":"Une explosion sépare le groupe en deux paires. Chaque paire doit trouver son chemin pour se retrouver.","design_notes":"Split-screen ou chemins parallèles selon le nb de joueurs. Réunification = condition de progression. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"villageois-08","num":"1-V-08","title":"La vérité sur le village","group":"VILLAGEOIS","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["villageois-07"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre découvrent que le village était construit sur un ancien portail. La révélation change tout.","design_notes":"DÉBLOQUE SCÈNES MIXTES (avec conditions). Cutscene narrative importante. Décision de fin d'acte. Durée : 12 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"villageois-bonus-01","num":"1-V-B01","title":"La fuite des amoureux","group":"VILLAGEOIS","branch":"bonus","players_min":2,"players_max":2,"type":"fuite","unlock_conditions":{"AND":["villageois-05"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Branche secrète : Marie et Pierre décident de fuir ensemble au lieu d'aider le village. Début d'une fin alternative.","design_notes":"Uniquement 2 joueurs. Méca de furtivité pour éviter les autres villageois. Durée : 8 min.","climax":false,"final":false,"bonus":true,"act":2},{"id":"villageois-bonus-02","num":"1-V-B02","title":"Un nouveau commencement","group":"VILLAGEOIS","branch":"bonus","players_min":2,"players_max":2,"type":"révélation","unlock_conditions":{"AND":["villageois-bonus-01"]},"roles_involved":["villageois-lisa","villageois-luca"],"description":"Marie et Pierre trouvent un refuge. Fin indépendante et romantique — mais peuvent rejoindre la cutscene finale.","design_notes":"Fin auto-suffisante OU point de jonction vers M-09 si terminée avant la fin principale. Durée : 6 min.","climax":false,"final":true,"bonus":true,"act":3},{"id":"fbi-01","num":"1-F-01","title":"Rapport d'incident","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"AND":["villageois-05"]},"roles_involved":["fbi-lance","fbi-bombe"],"description":"Deux agents FBI arrivent sur les lieux. Briefing de mission, introduction aux armes et à la coordination tactique.","design_notes":"Introduction asymétrique : J1 = lance+bombe en mode 2J. Obstacles : zones interdites, alarmes. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"fbi-02","num":"1-F-02","title":"Opération filet","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["fbi-01"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost"],"description":"Les agents déploient leurs équipements pour capturer des échantillons de poissons tombés. La lance sert de plateforme.","design_notes":"La lance = plateforme pour les autres agents. Bombe = déblocage de passages. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"fbi-03","num":"1-F-03","title":"La piste froide","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["fbi-02"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Agent Frost congèle une rivière pour permettre le passage. Agent Flûte utilise sa musique pour attirer / repousser les poissons.","design_notes":"Tous les agents présents. Pistolet glace : gel de l'eau = plateforme temporaire. Flûte : méca d'attraction. Durée : 12 min.","climax":false,"final":false,"bonus":false,"act":2},{"id":"fbi-04","num":"1-F-04","title":"Confrontation souterraine","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"combat","unlock_conditions":{"AND":["fbi-03"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Les agents découvrent une organisation secrète sous le village. Combat intense en espace confiné.","design_notes":"DÉBLOQUE ARC MIXTE (avec conditions). Boss intermédiaire. Combinaison de toutes les armes obligatoire. Durée : 15 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"fbi-05","num":"1-F-05","title":"Le portail activé","group":"FBI","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["fbi-04"]},"roles_involved":["fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Les agents comprennent que le portail est intentionnel. Quelqu'un contrôle la pluie de poissons. La vérité est révélée.","design_notes":"DÉBLOQUE TOUTES LES SCÈNES MIXTES restantes. Cinématique narrative. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-01","num":"1-M-01","title":"La rencontre","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"intro","unlock_conditions":{"OR":["poissons-10","villageois-08"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca"],"description":"Les poissons et les villageois se retrouvent pour la première fois dans le même espace. Incompréhension et tentatives de communication.","design_notes":"Méca de traduction gestuelle. Les poissons ne parlent pas, communication via actions. Durée : 8 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-02","num":"1-M-02","title":"Poissons et villageois","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-07","villageois-08"]},"roles_involved":["poisson-flip","poisson-flop","villageois-locyse","villageois-lionel"],"description":"Les personnages secondaires forment une alliance inattendue pour traverser une zone inondée.","design_notes":"Bulle (poissons) + chapeau (villageois) en combo. Méca mixte inédite. Durée : 9 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-03","num":"1-M-03","title":"Les agents arrivent","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"exploration","unlock_conditions":{"AND":["villageois-08","fbi-04"]},"roles_involved":["fbi-lance","fbi-frost","villageois-lisa","villageois-luca"],"description":"Les agents FBI entrent en contact avec les villageois. Méfiance réciproque, mais objectifs communs.","design_notes":"Lance comme plateforme pour villageois = nouveau gameplay. Tension narrative. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-04","num":"1-M-04","title":"Sous l'eau, avec les agents","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["poissons-10","fbi-03"]},"roles_involved":["poisson-flap","poisson-flup","fbi-frost","fbi-flute"],"description":"Les poissons guident les agents FBI sous l'eau. Le pistolet glace et les bulles créent de nouvelles platformes.","design_notes":"Méca inédite : agents dans l'eau avec équipement FBI. Bulle + glace = combo plateforme. Durée : 11 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-05","num":"1-M-05","title":"Les trois groupes","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"coopération","unlock_conditions":{"AND":["mixte-02","mixte-03"]},"roles_involved":["poisson-flip","villageois-lisa","fbi-lance","fbi-bombe"],"description":"Pour la première fois, les trois groupes se retrouvent dans la même zone. Coordination à grande échelle.","design_notes":"Niveau complexe avec toutes les capacités disponibles. Puzzle tripartite : chaque groupe a un rôle obligatoire. Durée : 12 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-06","num":"1-M-06","title":"La vérité du portail","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["fbi-05","mixte-05"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","fbi-lance"],"description":"La grande révélation : le portail a été créé par les poissons eux-mêmes, inconsciemment, par amour pour la surface.","design_notes":"Cutscene majeure. Pivot émotionnel du jeu. Les joueurs peuvent interagir avec la cinématique. Durée : 10 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-07","num":"1-M-07","title":"La poussée finale","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"combat","unlock_conditions":{"AND":["mixte-06"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","fbi-lance","fbi-bombe"],"description":"Les trois groupes avancent ensemble vers le portail. Vague d'ennemis et obstacles combinés.","design_notes":"Intensité maximale. Toutes les armes et capacités actives simultanément. Durée : 14 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-08","num":"1-M-08","title":"Le boss du portail","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"boss","unlock_conditions":{"AND":["mixte-07"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca","fbi-lance","fbi-frost"],"description":"Le gardien du portail. Un boss multi-phase qui change de résistances selon les dommages infligés par chaque groupe.","design_notes":"3 phases : phase 1 = vulnérable à l'eau, phase 2 = vulnérable au chapeau/attaque, phase 3 = vulnérable armes FBI. Durée : 18 min.","climax":true,"final":false,"bonus":false,"act":3},{"id":"mixte-09","num":"1-M-09","title":"Le choix","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["mixte-08"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca","fbi-lance","fbi-bombe","fbi-frost","fbi-flute"],"description":"Chaque joueur choisit le personnage qui prononcera la dernière réplique de la cutscene finale. Convergence de tous les arcs.","design_notes":"Vote ou premier à interagir = personnage de la cutscene. Branche bonus villageois peut rejoindre ici. Durée : 6 min.","climax":false,"final":false,"bonus":false,"act":3},{"id":"mixte-10","num":"1-M-10","title":"Les poissons qui tombent du ciel","group":"MIXTE","branch":"main","players_min":2,"players_max":4,"type":"révélation","unlock_conditions":{"AND":["mixte-09"]},"roles_involved":["poisson-flip","poisson-flap","villageois-lisa","villageois-luca","fbi-lance","fbi-bombe","fbi-frost","fbi-flute","poisson-flop","poisson-flup","villageois-locyse","villageois-lionel"],"description":"La cutscene finale. Le portail se ferme. Les poissons retournent à l'eau. Tout le monde se souvient.","design_notes":"Fin principale. Personnage choisi en M-09 prend la parole. Générique interactif. Durée : 8 min.","climax":false,"final":true,"bonus":false,"act":3}],"characters":[{"id":"poisson-flip","name":"Splash","actor_name":"Cocca","group":"POISSONS","role":"player","player_slot":1,"is_duo_main":true,"color":"#1D9E75","role_type":"principal","summary":"Poisson curieux et courageux, premier à vouloir comprendre les perturbations qui affectent la rivière.","objective":"Comprendre l'origine des poissons qui tombent du ciel et protéger la rivière.","fear":"Perdre son monde aquatique, ne plus pouvoir nager librement.","abilities":["nage","bulle"],"notes":"Personnage principal côté Poissons. Souvent le guide dans les niveaux mixtes."},{"id":"poisson-flap","name":"Bulle","actor_name":"Cocci","group":"POISSONS","role":"player","player_slot":2,"is_duo_main":true,"color":"#E07B54","role_type":"principal","summary":"Poisson sensible avec une capacité unique : créer des bulles d'air qui permettent de survivre hors de l'eau.","objective":"Aider ses amis à traverser les zones sèches et trouver une solution au portail.","fear":"Que ses bulles éclatent au mauvais moment, mettre le groupe en danger.","abilities":["nage","bulle"],"notes":"La bulle est débloquée en P-06. Avant cela, Bulle joue comme Splash."},{"id":"poisson-flop","name":"Nemo","actor_name":"Cocco","group":"POISSONS","role":"player","player_slot":3,"is_duo_main":false,"color":"#7B6EF6","role_type":"secondaire","summary":"Vieux poisson sage du groupe, connaît tous les recoins de la rivière.","objective":"Guider les jeunes poissons et préserver la mémoire de la rivière.","fear":"Être oublié, que la rivière change au point de ne plus la reconnaître.","abilities":["nage"],"notes":"Personnage de soutien narratif. Apparaît surtout en P-02, P-03."},{"id":"poisson-flup","name":"Perle","actor_name":"Coccé","group":"POISSONS","role":"player","player_slot":4,"is_duo_main":false,"color":"#E05252","role_type":"secondaire","summary":"Poisson rapide et espiègle, toujours en train d'explorer là où les autres n'osent pas aller.","objective":"Explorer, découvrir des secrets, être la première à voir ce qui se passe.","fear":"Être ralentie ou retenue par le groupe.","abilities":["nage","bulle"],"notes":"Utile pour les raccourcis dans les niveaux. Débloquée en P-03."},{"id":"villageois-lisa","name":"Marie","actor_name":"Cocca","group":"VILLAGEOIS","role":"player","player_slot":1,"is_duo_main":true,"color":"#1D9E75","role_type":"principal","summary":"Villageoise déterminée et pragmatique. Amoureuse de Pierre, mais pas au point de tout sacrifier.","objective":"Protéger le village et trouver la vérité, même si elle est douloureuse.","fear":"Que Pierre fasse un mauvais choix qui les sépare définitivement.","abilities":["attaque","chapeau"],"notes":"Joue un rôle central dans la révélation de V-08. Présente dans presque tous les niveaux mixtes."},{"id":"villageois-luca","name":"Pierre","actor_name":"Cocci","group":"VILLAGEOIS","role":"player","player_slot":2,"is_duo_main":true,"color":"#E07B54","role_type":"principal","summary":"Villageois idéaliste et romantique. Prêt à tout pour Marie, parfois au détriment du groupe.","objective":"Protéger Marie et trouver un endroit sûr pour eux deux.","fear":"Perdre Marie dans le chaos.","abilities":["attaque","chapeau"],"notes":"Personnage de la branche bonus. Sa relation avec Marie est au cœur de l'arc villageois."},{"id":"villageois-locyse","name":"Odette","actor_name":"Cocco","group":"VILLAGEOIS","role":"player","player_slot":3,"is_duo_main":false,"color":"#7B6EF6","role_type":"secondaire","summary":"Commère du village, mais aussi la première à agir quand c'est vraiment grave.","objective":"S'assurer que le village s'en souvient et qu'on lui donne un César.","fear":"Passer inaperçue, ne pas être reconnue à sa juste valeur.","abilities":["attaque","chapeau"],"notes":"Très forte mécanique compétitive. Idéale pour introduire le système de récompenses individuelles."},{"id":"villageois-lionel","name":"Gustave","actor_name":"Coccé","group":"VILLAGEOIS","role":"player","player_slot":4,"is_duo_main":false,"color":"#E05252","role_type":"secondaire","summary":"Villageois placide qui devient étonnamment compétent sous pression.","objective":"Garder la tête froide, ramener tout le monde à la maison.","fear":"Le chaos, le désordre, perdre ses habitudes.","abilities":["attaque","chapeau"],"notes":"Personnage surprise : révèle des capacités cachées dans les niveaux avancés."},{"id":"fbi-lance","name":"Agent Lance","actor_name":"Cocca","group":"FBI","role":"player","player_slot":1,"is_duo_main":true,"color":"#1D9E75","role_type":"principal","summary":"Agent expérimenté, chef de terrain. Sa lance peut servir de plateforme pour les coéquipiers.","objective":"Fermer le portail et ramener des preuves au Bureau.","fear":"Perdre le contrôle de la situation, que la mission échoue.","abilities":["arme-lance"],"notes":"Disponible en 2J, 3J et 4J. Sa lance = mécanique de plateforme clé pour tout le groupe FBI."},{"id":"fbi-bombe","name":"Agent Bombe","actor_name":"Cocci","group":"FBI","role":"player","player_slot":2,"is_duo_main":true,"color":"#E07B54","role_type":"principal","summary":"Explosif et impulsif. Sa bombe peut détruire des murs et créer des ouvertures.","objective":"Faire sauter tous les obstacles entre le FBI et la vérité.","fear":"Faire une erreur, tout faire exploser au mauvais moment.","abilities":["arme-bombe"],"notes":"En 2J, partagé avec Agent Lance (J1 a lance+bombe). En 3J+, rôle dédié."},{"id":"fbi-frost","name":"Agent Frost","actor_name":"Cocco","group":"FBI","role":"player","player_slot":3,"is_duo_main":false,"color":"#7B6EF6","role_type":"secondaire","summary":"Agent discret et méthodique. Son pistolet glace congèle l'eau et les ennemis.","objective":"Neutraliser les menaces sans bruit, analyser le phénomène.","fear":"Le chaud, les environments aquatiques non contrôlés.","abilities":["arme-pistolet-glace"],"notes":"En 2J, partagé avec Flûte (J2 a frost+flûte). Eau gelée = plateforme temporaire."},{"id":"fbi-flute","name":"Agent Flûte","actor_name":"Coccé","group":"FBI","role":"player","player_slot":4,"is_duo_main":false,"color":"#E05252","role_type":"secondaire","summary":"Agent atypique. Sa flûte attire ou repousse les poissons et affecte les ennemis.","objective":"Comprendre les poissons, peut-être communiquer avec eux.","fear":"Que personne ne prenne sa méthode au sérieux.","abilities":["arme-flute"],"notes":"Méca unique : attirer les poissons = clé pour plusieurs puzzles. En 2J, partagé avec Frost."}],"abilities":[{"id":"nage","name":"Nage","group":"POISSONS","description":"Déplacement naturel dans l'eau. Vitesse augmentée en formation banc. Permet de respirer indéfiniment sous l'eau.","characters":["poisson-flip","poisson-flap","poisson-flop","poisson-flup"],"player_count_variants":{"2":"Les deux joueurs nagent librement. Formation banc active si côte à côte.","3":"Un joueur peut prendre le rôle de poisson guide (+20% vitesse groupe).","4":"Formation banc complète disponible : bonus vitesse maximal."},"unlock_scene":"poissons-01","shared":true},{"id":"bulle","name":"Bulle d'air","group":"POISSONS","description":"Crée une bulle d'air portable permettant de survivre hors de l'eau pendant 15 secondes. Peut rebondir sur les surfaces.","characters":["poisson-flap","poisson-flup"],"player_count_variants":{"2":"Bulle crée une sphère partagée : les deux joueurs restent dedans ensemble.","3":"Bulle peut créer deux sphères de taille réduite (durée 10s chacune).","4":"Une bulle par poisson concerné, durée standard. Coordination requise."},"unlock_scene":"poissons-06","shared":false},{"id":"attaque","name":"Attaque au corps à corps","group":"VILLAGEOIS","description":"Frappe directe sur les ennemis proches. Peut être chargée pour un coup plus puissant.","characters":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"player_count_variants":{"2":"Frappe simple et frappe chargée disponibles pour les deux joueurs.","3":"Un joueur peut déclencher une attaque combo avec un autre (timing précis).","4":"Attaque en chaîne possible entre tous les joueurs (max dégâts)."},"unlock_scene":"villageois-01","shared":true},{"id":"chapeau","name":"Lancer de chapeau","group":"VILLAGEOIS","description":"Lance le chapeau comme projectile. Peut rebondir sur plusieurs surfaces. Récupérable après chaque lancer.","characters":["villageois-lisa","villageois-luca","villageois-locyse","villageois-lionel"],"player_count_variants":{"2":"Chaque joueur a son propre chapeau. Rebond sur le chapeau de l'autre.","3":"Un joueur peut lancer le chapeau d'un autre, créant une trajectoire surprise.","4":"Chapeau en chaîne : peut traverser jusqu'à 4 cibles en rebondissant."},"unlock_scene":"villageois-02","shared":true},{"id":"arme-lance","name":"Lance (plateforme)","group":"FBI","description":"Arme de contact ET plateforme pour les coéquipiers. Plantée dans le sol, les autres agents peuvent monter dessus.","characters":["fbi-lance"],"player_count_variants":{"2":"J1 dispose de la lance ET de la bombe. Lance plantée = plateforme pour J2.","3":"J1 garde la lance uniquement. Lance = pont pour J2 et J3.","4":"Lance dédiée à Agent Lance. Peut porter 3 agents simultanément."},"unlock_scene":"fbi-01","shared":false},{"id":"arme-bombe","name":"Bombe","group":"FBI","description":"Explosive à minuterie ou télécommandée. Détruit les murs, crée des passages, repousse les ennemis.","characters":["fbi-bombe"],"player_count_variants":{"2":"J1 dispose de la bombe ET de la lance. Timer manuel uniquement.","3":"J2 dispose de la bombe. Télécommande débloquée en F-02.","4":"Agent Bombe dédié. Combo bombe+glace disponible avec Frost."},"unlock_scene":"fbi-01","shared":false},{"id":"arme-pistolet-glace","name":"Pistolet Glace","group":"FBI","description":"Congèle l'eau en plateforme temporaire (8 secondes) et gèle les ennemis sur place.","characters":["fbi-frost"],"player_count_variants":{"2":"J2 dispose du pistolet glace ET de la flûte. Un seul tir à la fois.","3":"J2 dispose du pistolet glace uniquement. Tirs illimités, rechargement 2s.","4":"Agent Frost dédié. Combo glace+bulle (avec Bulle) pour plateformes permanentes."},"unlock_scene":"fbi-01","shared":false},{"id":"arme-flute","name":"Flûte","group":"FBI","description":"Attire les poissons dans une zone définie ou les repousse. Peut aussi distraire certains ennemis.","characters":["fbi-flute"],"player_count_variants":{"2":"J2 dispose de la flûte ET du pistolet glace. Attire OU repousse, pas les deux.","3":"J3 dispose de la flûte uniquement. Zone d'attrait plus grande.","4":"Agent Flûte dédié. Peut coordonner avec Agent Lance pour piéger les ennemis."},"unlock_scene":"fbi-01","shared":false}]};
+const DEFAULT_DATA = {"meta":{"version":"2.0.0","title":"Nouveau projet","last_modified":"2026-09-01"},"actors":[{"id":"lysa","name":"Lysa","color":"#1D9E75"},{"id":"colin","name":"Colin","color":"#E07B54"},{"id":"diane","name":"Diane","color":"#7B6EF6"},{"id":"pierre","name":"Pierre","color":"#E05252"}],"films":[{"id":"animation","title":"Animation","genre":"animation","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"horreur","title":"Horreur","genre":"horreur","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"romance","title":"Romance","genre":"romance","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"action","title":"Action / Spy","genre":"action","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"realite","title":"La Réalité","genre":"realite","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]}]};
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════
 let state = {
   data: null,
+  currentFilmId: 'animation',
   modified: false,
   activeTab: 'scenes',
   selectedSceneId: null,
   selectedCharId: null,
-  selectedAbilId: null,
   selectedSeqId: null,
   dlgView: 'list',
   editBuffer: {},
   filters: {
     branch: ['main','bonus'],
-    act:    ['1','2','3','4','5','6'],
   }
 };
+
+function currentFilm() {
+  if (!state.data?.films) return null;
+  return state.data.films.find(f => f.id === state.currentFilmId) || state.data.films[0];
+}
 
 // Graph transform state
 let graphTransform = { x: 0, y: 0, k: 1 };
@@ -1233,39 +1199,90 @@ document.addEventListener('keydown', e => {
 });
 
 function loadDefaultData() {
-  const saved = localStorage.getItem('se-story-data');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (parsed.scenes && parsed.characters && parsed.abilities) {
-        loadData(parsed);
-        toast('Session restaurée ✓', 'success');
-        return;
-      }
-    } catch (e) {}
-  }
+  try {
+    const saved = localStorage.getItem('se-story-data');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.films && parsed.actors) {
+          loadData(parsed);
+          toast('Session restaurée ✓', 'success');
+          return;
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
   loadData(DEFAULT_DATA);
 }
 
 function getEmptyTemplate() {
-  return { meta: { version:'1.0.0', title:'Nouveau projet', last_modified: new Date().toISOString().slice(0,10) },
-           scenes: [], characters: [], abilities: [], dialogue_sequences: [] };
+  const emptyFilm = (id, title, genre) => ({ id, title, genre, scenes: [], characters: [],
+    scenario: { synopsis: '', notes: [], positions: {}, graph_positions: {} }, dialogue_sequences: [] });
+  return {
+    meta: { version: '2.0.0', title: 'Nouveau projet', last_modified: new Date().toISOString().slice(0,10) },
+    actors: [
+      { id: 'lysa',   name: 'Lysa',   color: '#1D9E75' },
+      { id: 'colin',  name: 'Colin',  color: '#E07B54' },
+      { id: 'diane',  name: 'Diane',  color: '#7B6EF6' },
+      { id: 'pierre', name: 'Pierre', color: '#E05252' }
+    ],
+    films: [
+      emptyFilm('animation', 'Animation',    'animation'),
+      emptyFilm('horreur',   'Horreur',      'horreur'),
+      emptyFilm('romance',   'Romance',      'romance'),
+      emptyFilm('action',    'Action / Spy', 'action'),
+      emptyFilm('realite',   'La Réalité',   'realite'),
+    ]
+  };
 }
 
 function loadData(json) {
   state.data = json;
-  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [] };
+  if (!state.data.films) state.data.films = [];
+  if (!state.data.actors) state.data.actors = [
+    { id: 'lysa', name: 'Lysa', color: '#1D9E75' },
+    { id: 'colin', name: 'Colin', color: '#E07B54' },
+    { id: 'diane', name: 'Diane', color: '#7B6EF6' },
+    { id: 'pierre', name: 'Pierre', color: '#E05252' }
+  ];
+  state.data.films.forEach(film => {
+    if (!film.scenario) film.scenario = { synopsis: '', notes: [], positions: {}, graph_positions: {} };
+    if (!film.scenario.notes) film.scenario.notes = [];
+    if (!film.scenario.positions) film.scenario.positions = {};
+    if (!film.scenario.graph_positions) film.scenario.graph_positions = {};
+    if (!film.dialogue_sequences) film.dialogue_sequences = [];
+    if (!film.scenes) film.scenes = [];
+    if (!film.characters) film.characters = [];
+  });
   if (!state.data.notes) state.data.notes = { sections: _defaultNoteSections() };
-  if (!state.data.dialogue_sequences) state.data.dialogue_sequences = [];
   state.modified = false;
   updateUnsavedIndicator();
   renderAll();
 }
 
+function renderFilmSelector() {
+  const el = document.getElementById('film-selector');
+  if (!el || !state.data) return;
+  const films = state.data.films || [];
+  el.innerHTML = films.map(f =>
+    `<button class="film-btn${state.currentFilmId === f.id ? ' active' : ''}" onclick="switchFilm('${esc(f.id)}')">${esc(f.title)}</button>`
+  ).join('');
+}
+
+function switchFilm(id) {
+  state.currentFilmId = id;
+  state.selectedSceneId = null;
+  state.selectedCharId = null;
+  state.selectedSeqId = null;
+  closeAllPanels();
+  renderFilmSelector();
+  renderAll();
+}
+
 function renderAll() {
+  renderFilmSelector();
   renderScenesTable();
   renderCharactersTable();
-  renderAbilitiesTable();
   if (state.activeTab === 'graph')     renderGraph();
   if (state.activeTab === 'notes')     renderNotes();
   if (state.activeTab === 'dialogues') renderDialogues();
@@ -1294,24 +1311,23 @@ function toggleFilter(chip) {
   const key = chip.dataset.filter;
   const val = chip.dataset.value;
   if (chip.classList.contains('active')) {
+    if (!state.filters[key]) state.filters[key] = [];
     if (!state.filters[key].includes(val)) state.filters[key].push(val);
   } else {
-    state.filters[key] = state.filters[key].filter(v => v !== val);
+    if (state.filters[key]) state.filters[key] = state.filters[key].filter(v => v !== val);
   }
   renderScenesTable();
   renderCharactersTable();
-  renderAbilitiesTable();
 }
 
 // ═══════════════════════════════════════════════════════════════
 // SCENES TABLE
 // ═══════════════════════════════════════════════════════════════
 function getFilteredScenes() {
-  if (!state.data) return [];
+  if (!state.data || !currentFilm()) return [];
   const q = (document.getElementById('scene-search')?.value || '').toLowerCase();
-  return state.data.scenes.filter(s => {
-    if (!state.filters.branch.includes(s.branch)) return false;
-    if (!state.filters.act.includes(String(s.act))) return false;
+  return currentFilm().scenes.filter(s => {
+    if (state.filters.branch && !state.filters.branch.includes(s.branch)) return false;
     if (q && !s.title.toLowerCase().includes(q) && !s.num.toLowerCase().includes(q) && !s.description.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1328,7 +1344,6 @@ function renderScenesTable() {
     tr.innerHTML = `
       <td class="td-num">${esc(s.num)}</td>
       <td class="td-title">${esc(s.title)}<small>${esc(s.description)}</small></td>
-      <td><span class="badge badge-${ACT_CSS_KEY[s.act]||'act'}">${ACT_LABELS[s.act]||'—'}</span></td>
       <td><span class="badge badge-type">${esc(s.type)}</span></td>
       <td class="flag-row">
         ${s.bonus  ? '<span class="badge badge-bonus">bonus</span>' : ''}
@@ -1354,7 +1369,7 @@ function renderConditionsBadge(uc) {
 // SCENE PANEL
 // ═══════════════════════════════════════════════════════════════
 function openScenePanel(id) {
-  const scene = state.data.scenes.find(s => s.id === id);
+  const scene = currentFilm().scenes.find(s => s.id === id);
   if (!scene) return;
   state.selectedSceneId = id;
   state.editBuffer = JSON.parse(JSON.stringify(scene));
@@ -1376,7 +1391,6 @@ function openScenePanel(id) {
     </div>
     ${field('Titre', 'edit-input', 'title', scene.title)}
     <div class="field-row">
-      ${fieldSelect('Chapitre', 'act', scene.act, [[1,'Intro'],[2,'Chapitre 1'],[3,'Chapitre 2'],[4,'Chapitre 3'],[5,'Chapitre 4'],[6,'Chapitre 5']])}
       ${fieldSelect('Branche', 'branch', scene.branch, ['main','bonus'])}
     </div>
     <div class="field-row">
@@ -1433,7 +1447,7 @@ function openScenePanel(id) {
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px">
         ${(scene.dialogue_sequences||[]).map(sid => {
-          const seq = (state.data.dialogue_sequences||[]).find(s=>s.id===sid);
+          const seq = (currentFilm().dialogue_sequences||[]).find(s=>s.id===sid);
           return `<span class="tag" style="cursor:pointer" onclick="switchTab('dialogues');openSequenceEditor('${sid}')">${esc(seq?.label||sid)}</span>`;
         }).join('')}
         ${(scene.dialogue_sequences||[]).length===0 ? '<span style="font-size:11px;color:var(--text3)">Aucune séquence</span>' : ''}
@@ -1496,7 +1510,6 @@ function checkbox(id, label, checked) {
 function triggerPanelSave() {
   if (state.selectedSceneId)    debounceAutoSave('scene-panel', saveScene);
   else if (state.selectedCharId) debounceAutoSave('char-panel',  saveChar);
-  else if (state.selectedAbilId) debounceAutoSave('abil-panel',  saveAbil);
 }
 
 function condTagKeydown(e) {
@@ -1571,21 +1584,18 @@ function showTagSugg(inputId, type, containerId) {
 
   let items = [];
   if (type === 'scenes') {
-    items = (state.data?.scenes || [])
+    items = (currentFilm()?.scenes || [])
       .filter(s => s.id !== state.selectedSceneId)
       .filter(s => !q || s.num.toLowerCase().includes(q) || s.title.toLowerCase().includes(q))
       .slice(0, 10)
-      .map(s => ({ id: s.id, label: s.title, sub: s.num, avatar: null, grp: s.group }));
+      .map(s => ({ id: s.id, label: s.title, sub: s.num, avatar: null, grp: '' }));
   } else if (type === 'characters') {
-    items = (state.data?.characters || [])
+    items = (currentFilm()?.characters || [])
       .filter(c => !q || c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
       .slice(0, 10)
-      .map(c => ({ id: c.id, label: c.name, sub: c.actor_name, avatar: c.image, grp: c.group }));
+      .map(c => ({ id: c.id, label: c.name, sub: c.actor_name, avatar: c.image, grp: '' }));
   } else if (type === 'abilities') {
-    items = (state.data?.abilities || [])
-      .filter(a => !q || a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q))
-      .slice(0, 10)
-      .map(a => ({ id: a.id, label: a.name, sub: a.group, avatar: null, grp: a.group }));
+    items = [];
   }
 
   if (!items.length) { sug.style.display = 'none'; return; }
@@ -1625,7 +1635,7 @@ document.addEventListener('click', e => {
 
 function saveScene() {
   const panel = document.getElementById('scene-panel');
-  const s = state.data.scenes.find(s => s.id === state.selectedSceneId);
+  const s = currentFilm().scenes.find(s => s.id === state.selectedSceneId);
   if (!s) return;
 
   // Read fields
@@ -1642,8 +1652,6 @@ function saveScene() {
 
   // Dev status
   s.dev_status = document.querySelector('input[name="dev_status"]:checked')?.value || 'todo';
-
-  s.act = Number(s.act);
 
   // Conditions
   const condType = document.getElementById('cond-type').value;
@@ -1665,7 +1673,7 @@ function saveScene() {
 function deleteScene() {
   if (!state.selectedSceneId) return;
   if (!confirm('Supprimer cette scène ?')) return;
-  state.data.scenes = state.data.scenes.filter(s => s.id !== state.selectedSceneId);
+  currentFilm().scenes = currentFilm().scenes.filter(s => s.id !== state.selectedSceneId);
   state.selectedSceneId = null;
   closePanel('scene-panel');
   markModified();
@@ -1680,9 +1688,9 @@ function addScene() {
     type: 'exploration', unlock_conditions: {},
     roles_involved: [], dialogue_sequences: [],
     description: '', design_notes: '', references: '',
-    climax: false, final: false, bonus: false, act: 1, dev_status: 'todo'
+    climax: false, final: false, bonus: false, dev_status: 'todo'
   };
-  state.data.scenes.push(newScene);
+  currentFilm().scenes.push(newScene);
   markModified();
   renderScenesTable();
   openScenePanel(id);
@@ -1692,9 +1700,9 @@ function addScene() {
 // CHARACTERS TABLE
 // ═══════════════════════════════════════════════════════════════
 function getFilteredChars() {
-  if (!state.data) return [];
+  if (!state.data || !currentFilm()) return [];
   const q = (document.getElementById('char-search')?.value||'').toLowerCase();
-  return state.data.characters.filter(c => {
+  return currentFilm().characters.filter(c => {
     if (q && !c.name.toLowerCase().includes(q) && !c.actor_name.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -1706,7 +1714,7 @@ function renderCharactersTable() {
   const tbody = document.getElementById('chars-tbody');
   tbody.innerHTML = '';
   chars.forEach(c => {
-    const sceneCount = state.data.scenes.filter(s => (s.roles_involved||[]).includes(c.id)).length;
+    const sceneCount = currentFilm().scenes.filter(s => (s.roles_involved||[]).includes(c.id)).length;
     const colorDot = c.color ? `<span class="char-color-dot" style="background:${esc(c.color)};border-color:${esc(c.color)}"></span>` : '';
     const roleBadge = c.role ? `<span class="role-badge ${c.role==='player'?'player':'npc'}">${c.role==='player'?'Joueur':'NPC'}</span>` : '';
     const duoBadge  = c.is_duo_main ? `<span class="duo-badge">Duo</span>` : '';
@@ -1728,7 +1736,7 @@ function renderCharactersTable() {
 }
 
 function openCharPanel(id) {
-  const c = state.data.characters.find(c => c.id === id);
+  const c = currentFilm().characters.find(c => c.id === id);
   if (!c) return;
   state.selectedCharId = id;
   renderCharactersTable();
@@ -1745,7 +1753,7 @@ function openCharPanel(id) {
           ${field('ID', 'edit-input', 'id', c.id, 'text', true)}
         </div>
         <div class="field-row">
-          ${fieldSelect('Acteur', 'actor_name', c.actor_name, ['Cocca','Cocci','Cocco','Coccé',''])}
+          ${fieldSelect('Acteur', 'actor_name', c.actor_name, ['Lysa','Colin','Diane','Pierre',''])}
           ${fieldSelect('Rôle scène', 'role_type', c.role_type, ['principal','secondaire'])}
         </div>
         <div class="field-row">
@@ -1791,7 +1799,7 @@ function openCharPanel(id) {
 
 function saveChar() {
   const panel = document.getElementById('char-panel');
-  const c = state.data.characters.find(c => c.id === state.selectedCharId);
+  const c = currentFilm().characters.find(c => c.id === state.selectedCharId);
   if (!c) return;
   panel.querySelectorAll('[data-field]').forEach(el => {
     const f = el.dataset.field;
@@ -1834,7 +1842,7 @@ function clearCharImage() {
 
 function deleteChar() {
   if (!confirm('Supprimer ce personnage ?')) return;
-  state.data.characters = state.data.characters.filter(c => c.id !== state.selectedCharId);
+  currentFilm().characters = currentFilm().characters.filter(c => c.id !== state.selectedCharId);
   state.selectedCharId = null;
   closePanel('char-panel');
   markModified();
@@ -1844,7 +1852,7 @@ function deleteChar() {
 
 function addChar() {
   const id = 'char-' + Date.now();
-  state.data.characters.push({
+  currentFilm().characters.push({
     id, name:'Nouveau personnage', actor_name:'',
     role:'player', player_slot:null, is_duo_main:false, color:'#888888',
     role_type:'secondaire', summary:'', objective:'', fear:'', notes:''
@@ -1854,104 +1862,12 @@ function addChar() {
   openCharPanel(id);
 }
 
-function filterByAbil(abilId) {
-  // Switch to abilities tab and highlight
-  state.selectedAbilId = abilId;
-  renderAbilitiesTable();
-  openAbilPanel(abilId);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// ABILITIES TABLE
-// ═══════════════════════════════════════════════════════════════
-function getFilteredAbils() {
-  if (!state.data) return [];
-  const q = (document.getElementById('abil-search')?.value||'').toLowerCase();
-  return state.data.abilities.filter(a => {
-    if (q && !a.name.toLowerCase().includes(q) && !a.description.toLowerCase().includes(q)) return false;
-    return true;
-  });
-}
-
-function renderAbilitiesTable() {
-  const abils = getFilteredAbils();
-  document.getElementById('abils-count').textContent = `${abils.length} capacité${abils.length!==1?'s':''}`;
-  const tbody = document.getElementById('abils-tbody');
-  tbody.innerHTML = '';
-  abils.forEach(a => {
-    const unlockScene = a.unlock_scene ? state.data.scenes.find(s=>s.id===a.unlock_scene) : null;
-    const tr = document.createElement('tr');
-    if (a.id === state.selectedAbilId) tr.classList.add('selected');
-    tr.innerHTML = `
-      <td class="td-title">${esc(a.name)}<small>${esc(a.description)}</small></td>
-      <td class="linked-tags">${(a.characters||[]).map(cid=>{
-        const ch=state.data.characters.find(c=>c.id===cid);
-        return `<span class="linked-tag">${esc(ch?.name||cid)}</span>`;
-      }).join('')}</td>
-      <td>${unlockScene ? `<span class="tag">${esc(unlockScene.num)}</span>` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
-      <td>${a.shared ? '<span class="badge badge-type">Partagée</span>' : '—'}</td>`;
-    tr.addEventListener('click', () => openAbilPanel(a.id));
-    tbody.appendChild(tr);
-  });
-}
-
-function openAbilPanel(id) {
-  const a = state.data.abilities.find(a => a.id === id);
-  if (!a) return;
-  state.selectedAbilId = id;
-  renderAbilitiesTable();
-  document.getElementById('panel-abil-title').textContent = a.name;
-  const body = document.getElementById('abil-panel-body');
-  const v = a.player_count_variants || {};
-  body.innerHTML = `
-    <div class="field-row">
-      ${field('ID', 'edit-input', 'id', a.id, 'text', true)}
-    </div>
-    ${field('Nom', 'edit-input', 'name', a.name)}
-    ${field('Description', 'edit-textarea', 'description', a.description)}
-    ${fieldTags('Personnages', 'abil-char-tags', 'abil-char-input', a.characters||[])}
-    ${field('Scène déblocage (ID)', 'edit-input', 'unlock_scene', a.unlock_scene||'')}
-    <div class="field-group">
-      <div class="field-label">Partagée</div>
-      <label class="edit-checkbox-row"><input type="checkbox" id="cb-shared" ${a.shared?'checked':''}> Capacité partagée entre personnages</label>
-    </div>`;
-  document.getElementById('abil-panel').classList.add('open');
-  requestAnimationFrame(() => setupAutoSave('abil-panel', saveAbil));
-}
-
-function saveAbil() {
-  const panel = document.getElementById('abil-panel');
-  const a = state.data.abilities.find(a => a.id === state.selectedAbilId);
-  if (!a) return;
-  panel.querySelectorAll('[data-field]').forEach(el => {
-    a[el.dataset.field] = el.tagName==='SELECT' ? el.value : el.value;
-  });
-  a.shared = document.getElementById('cb-shared')?.checked || false;
-  a.characters = getTagValues('abil-char-tags');
-  markModified();
-  renderAbilitiesTable();
-  document.getElementById('panel-abil-title').textContent = a.name;
-  toast('Capacité sauvegardée', 'success');
-}
-
-function deleteAbil() {
-  if (!confirm('Supprimer cette capacité ?')) return;
-  state.data.abilities = state.data.abilities.filter(a => a.id !== state.selectedAbilId);
-  state.selectedAbilId = null;
-  closePanel('abil-panel');
-  markModified();
-  renderAbilitiesTable();
-  toast('Capacité supprimée');
-}
-
-function addAbil() {
-  const id = 'abil-' + Date.now();
-  state.data.abilities.push({ id, name:'Nouvelle capacité',
-    description:'', characters:[], unlock_scene:'', shared:false });
-  markModified();
-  renderAbilitiesTable();
-  openAbilPanel(id);
-}
+function filterByAbil() {}
+function renderAbilitiesTable() {}
+function openAbilPanel() {}
+function saveAbil() {}
+function deleteAbil() {}
+function addAbil() {}
 
 // ═══════════════════════════════════════════════════════════════
 // GRAPH VIEW (D3)
@@ -1972,7 +1888,7 @@ function renderGraph() {
   const W = document.getElementById('graph-svg').clientWidth || 900;
   const H = document.getElementById('graph-svg').clientHeight || 600;
 
-  const nodes = state.data.scenes.map(s => ({ ...s }));
+  const nodes = currentFilm().scenes.map(s => ({ ...s }));
   const nodeIds = new Set(nodes.map(n => n.id));
 
   const links = [];
@@ -1984,8 +1900,8 @@ function renderGraph() {
   });
 
   // Restore saved positions or use defaults
-  const savedPos = state.data.scenario?.graph_positions || {};
-  const castingNode = nodes.find(n => n.group === 'CASTING') || nodes[0];
+  const savedPos = currentFilm().scenario?.graph_positions || {};
+  const castingNode = nodes[0];
   nodes.forEach(n => {
     if (savedPos[n.id]) {
       n.x = savedPos[n.id].x; n.y = savedPos[n.id].y;
@@ -2034,8 +1950,8 @@ function renderGraph() {
       .on('end',   (ev,d) => {
         if(!ev.active) graphSim.alphaTarget(0);
         d.fx = d.x; d.fy = d.y;
-        if (!state.data.scenario.graph_positions) state.data.scenario.graph_positions = {};
-        state.data.scenario.graph_positions[d.id] = { x: Math.round(d.x), y: Math.round(d.y) };
+        if (!currentFilm().scenario.graph_positions) currentFilm().scenario.graph_positions = {};
+        currentFilm().scenario.graph_positions[d.id] = { x: Math.round(d.x), y: Math.round(d.y) };
         markModified();
       }))
     .on('click', (ev,d) => {
@@ -2047,9 +1963,9 @@ function renderGraph() {
 
   node.append('circle')
     .attr('r', d => d.climax||d.final ? 16 : 12)
-    .attr('fill', d => ACT_COLORS[d.act] || 'var(--text3)')
+    .attr('fill', d => d.climax ? 'var(--climax)' : d.final ? 'var(--final)' : 'var(--accent)')
     .attr('fill-opacity', 0.25)
-    .attr('stroke', d => ACT_COLORS[d.act] || 'var(--text3)')
+    .attr('stroke', d => d.climax ? 'var(--climax)' : d.final ? 'var(--final)' : 'var(--accent)')
     .attr('stroke-width', d => d.climax||d.final ? 3 : 2);
 
   // Title label below node
@@ -2356,10 +2272,10 @@ function showGraphPopup(scene, ev) {
   // Roles
   const badges = document.getElementById('gp-badges');
   let rolesHtml = '';
-  if (scene.roles_involved?.length && state.data.characters) {
+  if (scene.roles_involved?.length && currentFilm().characters) {
     rolesHtml = '<div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;">'
       + scene.roles_involved.map(rid => {
-          const ch = state.data.characters.find(c => c.id === rid);
+          const ch = currentFilm().characters.find(c => c.id === rid);
           if (!ch) return '';
           const isMain = ch.role_type === 'principal';
           const av = ch.image ? `<span class="char-avatar-sm" style="margin-right:3px"><img src="${esc(ch.image)}"></span>` : '';
@@ -2367,8 +2283,7 @@ function showGraphPopup(scene, ev) {
         }).join('')
       + '</div>';
   }
-  badges.innerHTML = `<span class="badge badge-${ACT_CSS_KEY[scene.act]||'act'}">${ACT_LABELS[scene.act]||'—'}</span>
-    <span class="badge badge-type">${esc(scene.type)}</span>
+  badges.innerHTML = `<span class="badge badge-type">${esc(scene.type)}</span>
     ${scene.climax ? '<span class="badge badge-climax">climax</span>' : ''}
     ${scene.final  ? '<span class="badge badge-final">final</span>'  : ''}
     ${rolesHtml}`;
@@ -2422,7 +2337,7 @@ function _graphNodeClickInLinkMode(nodeId) {
     const source = _linkSourceId;
     const target = nodeId;
     _clearLinkSelection();
-    const scene = state.data.scenes.find(s => s.id === target);
+    const scene = currentFilm().scenes.find(s => s.id === target);
     if (!scene) return;
     if (!scene.unlock_conditions) scene.unlock_conditions = {};
     // Convert OR→AND if needed, or just use AND
@@ -2436,7 +2351,7 @@ function _graphNodeClickInLinkMode(nodeId) {
 }
 
 function _graphLinkClickInLinkMode(sourceId, targetId) {
-  const scene = state.data.scenes.find(s => s.id === targetId);
+  const scene = currentFilm().scenes.find(s => s.id === targetId);
   if (!scene) return;
   const uc = scene.unlock_conditions;
   if (uc?.AND) uc.AND = uc.AND.filter(id => id !== sourceId);
@@ -2469,7 +2384,7 @@ function popupToggleEdit() {
 }
 
 function _populateGraphEditForm() {
-  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  const scene = currentFilm().scenes.find(s => s.id === _popupSceneId);
   if (!scene) return;
   document.getElementById('gp-edit-num').textContent = scene.num + ' — ' + scene.title;
   document.getElementById('gp-e-title').value  = scene.title || '';
@@ -2479,7 +2394,7 @@ function _populateGraphEditForm() {
   const rolesEl = document.getElementById('gp-e-roles');
   const roles = scene.roles_involved || [];
   rolesEl.innerHTML = roles.map(rid => {
-    const ch = state.data.characters.find(c => c.id === rid);
+    const ch = currentFilm().characters.find(c => c.id === rid);
     const name = ch ? ch.name : rid;
     const grp  = ch ? ch.group.toLowerCase() : '';
     const bold = ch?.role_type === 'principal' ? 'font-weight:700' : '';
@@ -2496,11 +2411,11 @@ function _populateGraphEditForm() {
 }
 
 function _fillRoleDatalist() {
-  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  const scene = currentFilm().scenes.find(s => s.id === _popupSceneId);
   const existing = new Set(scene?.roles_involved || []);
   const dl = document.getElementById('gp-role-datalist');
   if (!dl) return;
-  dl.innerHTML = (state.data.characters || [])
+  dl.innerHTML = (currentFilm().characters || [])
     .filter(c => !existing.has(c.id))
     .map(c => `<option value="${c.id}">${c.name} (${c.group})</option>`).join('');
 }
@@ -2508,7 +2423,7 @@ function _fillRoleDatalist() {
 function gpRoleSuggest() { _fillRoleDatalist(); }
 
 function gpRemoveRole(rid) {
-  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  const scene = currentFilm().scenes.find(s => s.id === _popupSceneId);
   if (!scene) return;
   scene.roles_involved = (scene.roles_involved || []).filter(r => r !== rid);
   markModified();
@@ -2519,9 +2434,9 @@ function gpAddRole() {
   const input = document.getElementById('gp-role-input');
   const val = input?.value.trim();
   if (!val) return;
-  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  const scene = currentFilm().scenes.find(s => s.id === _popupSceneId);
   if (!scene) return;
-  const charExists = state.data.characters.find(c => c.id === val || c.name === val);
+  const charExists = currentFilm().characters.find(c => c.id === val || c.name === val);
   const id = charExists ? charExists.id : val;
   if (!scene.roles_involved) scene.roles_involved = [];
   if (!scene.roles_involved.includes(id)) {
@@ -2532,7 +2447,7 @@ function gpAddRole() {
 }
 
 function saveGraphEdit() {
-  const scene = state.data.scenes.find(s => s.id === _popupSceneId);
+  const scene = currentFilm().scenes.find(s => s.id === _popupSceneId);
   if (!scene) return;
   scene.title        = document.getElementById('gp-e-title').value.trim();
   scene.description  = document.getElementById('gp-e-desc').value;
@@ -2583,22 +2498,19 @@ const TL_STEP      = 210;   // default spacing between consecutive cards
 // ── Position helpers ─────────────────────────────────────────────
 
 function tlAutoX(scene) {
-  const zone = TL_ACT_ZONES.find(z => z.act === scene.act);
-  const actStart = (zone?.x ?? 0) + 40;
-  const inAct = state.data.scenes.filter(s => s.act === scene.act);
-  const idx = inAct.findIndex(s => s.id === scene.id);
-  return actStart + Math.max(0, idx) * TL_STEP;
+  const idx = (currentFilm()?.scenes || []).findIndex(s => s.id === scene.id);
+  return 40 + Math.max(0, idx) * TL_STEP;
 }
 
 function tlGetX(id, fallbackFn) {
-  return state.data.scenario?.positions?.[id] ?? fallbackFn();
+  return currentFilm().scenario?.positions?.[id] ?? fallbackFn();
 }
 
 let _tlSaveTimer = null;
 function tlSetX(id, x) {
-  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [], positions: {} };
-  if (!state.data.scenario.positions) state.data.scenario.positions = {};
-  state.data.scenario.positions[id] = Math.max(0, Math.round(x));
+  if (!currentFilm().scenario) currentFilm().scenario = { synopsis: '', notes: [], positions: {} };
+  if (!currentFilm().scenario.positions) currentFilm().scenario.positions = {};
+  currentFilm().scenario.positions[id] = Math.max(0, Math.round(x));
   markModified();
   clearTimeout(_tlSaveTimer);
   _tlSaveTimer = setTimeout(showAutoSaved, 600);
@@ -2606,11 +2518,11 @@ function tlSetX(id, x) {
 
 function tlTotalWidth() {
   let max = TL_TOTAL_MIN;
-  state.data.scenes.forEach(s => {
+  currentFilm().scenes.forEach(s => {
     max = Math.max(max, tlGetX(s.id, () => tlAutoX(s)) + TL_CARD_W + 120);
   });
-  (state.data.scenario?.notes || []).forEach(n => {
-    const x = state.data.scenario?.positions?.[n.id] ?? 200;
+  (currentFilm().scenario?.notes || []).forEach(n => {
+    const x = currentFilm().scenario?.positions?.[n.id] ?? 200;
     max = Math.max(max, x + TL_NOTE_W + 120);
   });
   return max;
@@ -2694,37 +2606,13 @@ function setupTlPan() {
 // ── Render ───────────────────────────────────────────────────────
 
 function renderTimeline() {
-  if (!state.data) return;
+  if (!state.data || !currentFilm()) return;
   const synopsisEl = document.getElementById('scenario-synopsis');
-  if (synopsisEl) synopsisEl.value = state.data.scenario?.synopsis || '';
-  [1,2,3,4,5,6].forEach(act => {
-    const el = document.getElementById(`scenario-synopsis-act${act}`);
-    if (el) el.value = state.data.scenario?.act_synopses?.[act] || '';
-  });
+  if (synopsisEl) synopsisEl.value = currentFilm().scenario?.synopsis || '';
 
   const totalW = tlTotalWidth();
   const rows   = document.getElementById('tl-rows');
   rows.innerHTML = '';
-
-  // Act headers row
-  const hdrsRow = document.createElement('div');
-  hdrsRow.className = 'tl-act-headers';
-  const spacer = document.createElement('div');
-  spacer.className = 'tl-label-spacer';
-  hdrsRow.appendChild(spacer);
-  const hdrsInner = document.createElement('div');
-  hdrsInner.className = 'tl-act-hdr-inner';
-  hdrsInner.style.cssText = `width:${totalW}px;min-width:${totalW}px;position:relative;height:36px;`;
-  TL_ACT_ZONES.forEach((zone, i) => {
-    const nextX = TL_ACT_ZONES[i+1]?.x ?? totalW;
-    const h = document.createElement('div');
-    h.className = `tl-act-hdr-cell act${zone.act}`;
-    h.style.cssText = `left:${zone.x}px;width:${nextX - zone.x}px;`;
-    h.textContent = zone.label;
-    hdrsInner.appendChild(h);
-  });
-  hdrsRow.appendChild(hdrsInner);
-  rows.appendChild(hdrsRow);
 
   // Track rows
   TIMELINE_TRACKS.forEach(track => {
@@ -2733,7 +2621,7 @@ function renderTimeline() {
 
     const label = document.createElement('div');
     label.className = `tl-track-label ${track.cls}`;
-    const sceneCount = track.id === 'NOTES' ? 0 : state.data.scenes.length;
+    const sceneCount = track.id === 'NOTES' ? 0 : currentFilm().scenes.length;
     label.innerHTML = `<span class="tl-track-name">${track.label}</span>`
       + (sceneCount ? `<span class="tl-track-count">${sceneCount} scène${sceneCount > 1 ? 's' : ''}</span>` : '');
     row.appendChild(label);
@@ -2742,18 +2630,9 @@ function renderTimeline() {
     body.className = 'tl-track-body';
     body.style.cssText = `width:${totalW}px;min-width:${totalW}px;`;
 
-    // Act zone backgrounds
-    TL_ACT_ZONES.forEach((zone, i) => {
-      const nextX = TL_ACT_ZONES[i+1]?.x ?? totalW;
-      const zone_el = document.createElement('div');
-      zone_el.className = `tl-act-zone act${zone.act}`;
-      zone_el.style.cssText = `left:${zone.x}px;width:${nextX - zone.x}px;`;
-      body.appendChild(zone_el);
-    });
-
     // Scene cards
     if (track.id === 'SCENES') {
-      state.data.scenes.forEach(scene => {
+      currentFilm().scenes.forEach(scene => {
         const x    = tlGetX(scene.id, () => tlAutoX(scene));
         const card = makeTlSceneCard(scene);
         card.style.left = x + 'px';
@@ -2763,9 +2642,9 @@ function renderTimeline() {
     }
 
     // Note cards
-    (state.data.scenario?.notes || []).filter(n => n.track === track.id).forEach(note => {
+    (currentFilm().scenario?.notes || []).filter(n => n.track === track.id).forEach(note => {
       const x    = tlGetX(note.id, () => {
-        const trackNotes = (state.data.scenario?.notes||[]).filter(n2 => n2.track === track.id);
+        const trackNotes = (currentFilm().scenario?.notes||[]).filter(n2 => n2.track === track.id);
         const idx = trackNotes.findIndex(n2 => n2.id === note.id);
         return 200 + idx * TL_STEP;
       });
@@ -2775,25 +2654,21 @@ function renderTimeline() {
       body.appendChild(card);
     });
 
-    // "+" hotspots (one per act zone, placed after last card in that zone)
-    TL_ACT_ZONES.forEach((zone, i) => {
-      const nextX = TL_ACT_ZONES[i+1]?.x ?? totalW;
-      // find rightmost card in this zone+track
-      let maxRight = zone.x + 30;
+    // "+" hotspot
+    {
+      let maxRight = 30;
       body.querySelectorAll('.tl-scene-card, .tl-note-card').forEach(card => {
         const cx = parseFloat(card.style.left) || 0;
-        if (cx >= zone.x && cx < nextX) maxRight = Math.max(maxRight, cx + TL_CARD_W + 12);
+        maxRight = Math.max(maxRight, cx + TL_CARD_W + 12);
       });
-      if (maxRight + 40 < nextX) {
-        const hot = document.createElement('div');
-        hot.className = 'tl-add-hotspot';
-        hot.style.left = maxRight + 'px';
-        hot.title = 'Ajouter une note';
-        hot.textContent = '+';
-        hot.onclick = e => { e.stopPropagation(); addNoteInZone(track.id, zone.act, maxRight); };
-        body.appendChild(hot);
-      }
-    });
+      const hot = document.createElement('div');
+      hot.className = 'tl-add-hotspot';
+      hot.style.left = maxRight + 'px';
+      hot.title = 'Ajouter une note';
+      hot.textContent = '+';
+      hot.onclick = e => { e.stopPropagation(); addNoteInZone(track.id, maxRight); };
+      body.appendChild(hot);
+    }
 
     row.appendChild(body);
     rows.appendChild(row);
@@ -2824,7 +2699,7 @@ function makeTlSceneCard(scene) {
     <div class="sc-title">${esc(scene.title)}</div>
     ${flags  ? `<div class="sc-flags">${flags}</div>` : ''}
     ${desc}${roles}${notes}`;
-  card.style.borderTop = `2px solid ${ACT_COLORS[scene.act] || 'var(--border)'}`;
+  card.style.borderTop = `2px solid var(--accent)`;
   // MIXTE roles block removed (no more groups)
 
   // Click to edit — only if not dragging (drag suppresses click via makeTlDraggable)
@@ -2851,20 +2726,15 @@ function makeTlNoteCard(note) {
   return card;
 }
 
-function addNote(track, act) { addNoteInZone(track, act, null); }
+function addNote(track) { addNoteInZone(track, null); }
 
-function addNoteInZone(track, act, xHint) {
-  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [], positions: {} };
-  if (!state.data.scenario.positions) state.data.scenario.positions = {};
-  const note = { id: 'note-' + Date.now(), track, act, content: '' };
-  state.data.scenario.notes.push(note);
-  // Place note at xHint or just after last card on this track in this act zone
-  let x = xHint;
-  if (x == null) {
-    const zone = TL_ACT_ZONES.find(z => z.act === act);
-    x = zone ? zone.x + 30 : 30;
-  }
-  state.data.scenario.positions[note.id] = x;
+function addNoteInZone(track, xHint) {
+  if (!currentFilm().scenario) currentFilm().scenario = { synopsis: '', notes: [], positions: {} };
+  if (!currentFilm().scenario.positions) currentFilm().scenario.positions = {};
+  const note = { id: 'note-' + Date.now(), track, content: '' };
+  currentFilm().scenario.notes.push(note);
+  const x = xHint ?? 30;
+  currentFilm().scenario.positions[note.id] = x;
   markModified();
   renderTimeline();
   setTimeout(() => {
@@ -2873,10 +2743,10 @@ function addNoteInZone(track, act, xHint) {
   }, 50);
 }
 
-function addGlobalNote() { addNoteInZone('NOTES', 1, 200); switchTab('scenario'); }
+function addGlobalNote() { addNoteInZone('NOTES', 200); switchTab('scenario'); }
 
 function updateNote(id, value) {
-  const note = state.data.scenario?.notes?.find(n => n.id === id);
+  const note = currentFilm().scenario?.notes?.find(n => n.id === id);
   if (note) {
     note.content = value;
     markModified();
@@ -2886,17 +2756,17 @@ function updateNote(id, value) {
 }
 
 function deleteNote(id) {
-  if (!state.data.scenario) return;
+  if (!currentFilm().scenario) return;
   // Remove position too
-  if (state.data.scenario.positions) delete state.data.scenario.positions[id];
-  state.data.scenario.notes = state.data.scenario.notes.filter(n => n.id !== id);
+  if (currentFilm().scenario.positions) delete currentFilm().scenario.positions[id];
+  currentFilm().scenario.notes = currentFilm().scenario.notes.filter(n => n.id !== id);
   markModified();
   renderTimeline();
 }
 
 function saveScenarioSynopsis() {
-  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [] };
-  state.data.scenario.synopsis = document.getElementById('scenario-synopsis')?.value || '';
+  if (!currentFilm().scenario) currentFilm().scenario = { synopsis: '', notes: [] };
+  currentFilm().scenario.synopsis = document.getElementById('scenario-synopsis')?.value || '';
   markModified();
   clearTimeout(_tlSaveTimer);
   _tlSaveTimer = setTimeout(showAutoSaved, 600);
@@ -3176,22 +3046,15 @@ function exportNotes() {
   toast('Notes exportées ✓', 'success');
 }
 
-function saveActSynopsis(act) {
-  if (!state.data.scenario) state.data.scenario = { synopsis: '', notes: [] };
-  if (!state.data.scenario.act_synopses) state.data.scenario.act_synopses = {};
-  state.data.scenario.act_synopses[act] = document.getElementById(`scenario-synopsis-act${act}`)?.value || '';
-  markModified();
-  clearTimeout(_tlSaveTimer);
-  _tlSaveTimer = setTimeout(showAutoSaved, 600);
-}
+function saveActSynopsis() { /* act synopses removed */ }
 
 // ═══════════════════════════════════════════════════════════════
 // DIALOGUES SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
-function _dlgSeqs() { return state.data?.dialogue_sequences || []; }
-function _dlgChars() { return state.data?.characters || []; }
-function _dlgScenes() { return state.data?.scenes || []; }
+function _dlgSeqs() { return currentFilm()?.dialogue_sequences || []; }
+function _dlgChars() { return currentFilm()?.characters || []; }
+function _dlgScenes() { return currentFilm()?.scenes || []; }
 
 function _charById(id) { return _dlgChars().find(c => c.id === id); }
 function _seqById(id)  { return _dlgSeqs().find(s => s.id === id); }
@@ -3309,7 +3172,6 @@ function renderDlgList() {
       </div>
       <div class="dlg-seq-meta">
         ${sceneLabel}
-        ${seq.act ? `<span class="badge badge-${ACT_CSS_KEY[seq.act]||'act'}" style="font-size:10px">${ACT_LABELS[seq.act]||('Ch.'+seq.act)}</span>` : ''}
         ${vBadges}
         <div class="dlg-seq-speakers" style="margin-left:auto;display:flex;gap:3px;align-items:center">${speakerDots}</div>
       </div>
@@ -4561,17 +4423,16 @@ function _closeCreateSeqModal() {
 function confirmCreateSeq() {
   const label   = document.getElementById('scm-label')?.value.trim() || 'Nouvelle séquence';
   const sceneId = document.getElementById('scm-scene')?.value || '';
-  const act     = parseInt(document.getElementById('scm-act')?.value || '1');
   const id = 'seq_' + Date.now();
   const seq = {
-    id, scene_id: sceneId, label, act,
+    id, scene_id: sceneId, label,
     conditions: { scene_id: '' },
     nodes: [], canvas_notes: [], notes: ''
   };
-  state.data.dialogue_sequences.push(seq);
+  currentFilm().dialogue_sequences.push(seq);
   // Link to scene
   if (sceneId) {
-    const scene = (state.data.scenes||[]).find(s => s.id === sceneId);
+    const scene = (currentFilm().scenes||[]).find(s => s.id === sceneId);
     if (scene) {
       if (!scene.dialogue_sequences) scene.dialogue_sequences = [];
       if (!scene.dialogue_sequences.includes(id)) scene.dialogue_sequences.push(id);
@@ -4586,8 +4447,8 @@ function confirmCreateSeq() {
 
 function deleteSequence(seqId) {
   if (!confirm('Supprimer cette séquence et tous ses nœuds ?')) return;
-  state.data.dialogue_sequences = state.data.dialogue_sequences.filter(s => s.id !== seqId);
-  (state.data.scenes || []).forEach(scene => {
+  currentFilm().dialogue_sequences = currentFilm().dialogue_sequences.filter(s => s.id !== seqId);
+  (currentFilm().scenes || []).forEach(scene => {
     if (scene.dialogue_sequences) scene.dialogue_sequences = scene.dialogue_sequences.filter(id => id !== seqId);
   });
   if (state.selectedSeqId === seqId) state.selectedSeqId = null;
