@@ -1238,7 +1238,7 @@ function getEmptyTemplate() {
 
 function loadData(json) {
   state.data = json;
-  if (!state.data.films) state.data.films = [];
+  if (!state.data.films || state.data.films.length === 0) state.data.films = getEmptyTemplate().films;
   if (!state.data.actors) state.data.actors = [
     { id: 'lysa', name: 'Lysa', color: '#1D9E75' },
     { id: 'colin', name: 'Colin', color: '#E07B54' },
