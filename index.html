@@ -1392,9 +1392,21 @@ function openScenePanel(id) {
     ${field('Titre', 'edit-input', 'title', scene.title)}
     <div class="field-row">
       ${fieldSelect('Branche', 'branch', scene.branch, ['main','bonus'])}
+      ${fieldSelect('Mode', 'play_mode', scene.play_mode||'both', ['both','local','online'])}
     </div>
     <div class="field-row">
       ${fieldSelect('Type', 'type', scene.type, ['intro','exploration','combat','boss','révélation','fuite','coopération'])}
+    </div>
+    <div class="field-group">
+      <div class="field-label">Joueurs</div>
+      <div style="display:flex;gap:10px;padding:4px 0">
+        ${[1,2,3,4].map(n => {
+          const checked = (scene.players||[2,3,4]).includes(n);
+          return `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
+            <input type="checkbox" id="players-${n}" value="${n}" ${checked?'checked':''}> ${n}P
+          </label>`;
+        }).join('')}
+      </div>
     </div>
     <div class="field-group">
       <div class="field-label">Conditions de déblocage</div>
@@ -1650,6 +1662,9 @@ function saveScene() {
   s.final  = document.getElementById('cb-final')?.checked  || false;
   s.bonus  = document.getElementById('cb-bonus')?.checked  || false;
 
+  // Players
+  s.players = [1,2,3,4].filter(n => document.getElementById(`players-${n}`)?.checked);
+
   // Dev status
   s.dev_status = document.querySelector('input[name="dev_status"]:checked')?.value || 'todo';
 
@@ -1696,7 +1711,8 @@ function addScene() {
     type: 'exploration', unlock_conditions: {},
     roles_involved: [], dialogue_sequences: [],
     description: '', design_notes: '', references: '',
-    climax: false, final: false, bonus: false, dev_status: 'todo'
+    climax: false, final: false, bonus: false, dev_status: 'todo',
+    play_mode: 'both', players: [2,3,4]
   };
   currentFilm().scenes.push(newScene);
   markModified();
