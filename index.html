@@ -1097,7 +1097,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 // ═══════════════════════════════════════════════════════════════
 // DEFAULT DATA (embedded from story_data.json)
 // ═══════════════════════════════════════════════════════════════
-const DEFAULT_DATA = {"meta":{"version":"2.0.0","title":"Nouveau projet","last_modified":"2026-09-01"},"actors":[{"id":"lysa","name":"Lysa","color":"#1D9E75"},{"id":"colin","name":"Colin","color":"#E07B54"},{"id":"diane","name":"Diane","color":"#7B6EF6"},{"id":"pierre","name":"Pierre","color":"#E05252"}],"films":[{"id":"animation","title":"Animation","genre":"animation","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"horreur","title":"Horreur","genre":"horreur","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"romance","title":"Romance","genre":"romance","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"action","title":"Action / Spy","genre":"action","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"realite","title":"La Réalité","genre":"realite","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]}]};
+const DEFAULT_DATA = {"meta":{"version":"2.0.0","title":"Nouveau projet","last_modified":"2026-09-01"},"actors":[{"id":"lily","name":"Lily","color":"#E05C8A","role_type":"principale"},{"id":"marco","name":"Marco","color":"#4A90D9","role_type":"principale"},{"id":"mina","name":"Mina","color":"#9B6ED4","role_type":"secondaire"},{"id":"anim","name":"Anim","color":"#1D9E75","role_type":"secondaire"},{"id":"henri","name":"Henri","color":"#8A9BB0","role":"npc"}],"films":[{"id":"animation","title":"Animation","genre":"animation","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"horreur","title":"Horreur","genre":"horreur","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"romance","title":"Romance","genre":"romance","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"action","title":"Action / Spy","genre":"action","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]},{"id":"realite","title":"La Réalité","genre":"realite","scenes":[],"characters":[],"scenario":{"synopsis":"","notes":[],"positions":{},"graph_positions":{}},"dialogue_sequences":[]}]};
 
 // ═══════════════════════════════════════════════════════════════
 // STATE
@@ -1221,10 +1221,11 @@ function getEmptyTemplate() {
   return {
     meta: { version: '2.0.0', title: 'Nouveau projet', last_modified: new Date().toISOString().slice(0,10) },
     actors: [
-      { id: 'lysa',   name: 'Lysa',   color: '#1D9E75' },
-      { id: 'colin',  name: 'Colin',  color: '#E07B54' },
-      { id: 'diane',  name: 'Diane',  color: '#7B6EF6' },
-      { id: 'pierre', name: 'Pierre', color: '#E05252' }
+      { id: 'lily',  name: 'Lily',  color: '#E05C8A', role_type: 'principale' },
+      { id: 'marco', name: 'Marco', color: '#4A90D9', role_type: 'principale' },
+      { id: 'mina',  name: 'Mina',  color: '#9B6ED4', role_type: 'secondaire' },
+      { id: 'anim',  name: 'Anim',  color: '#1D9E75', role_type: 'secondaire' },
+      { id: 'henri', name: 'Henri', color: '#8A9BB0', role: 'npc' }
     ],
     films: [
       emptyFilm('animation', 'Animation',    'animation'),
@@ -1741,8 +1742,7 @@ function renderCharactersTable() {
     const sceneCount = currentFilm().scenes.filter(s => (s.roles_involved||[]).includes(c.id)).length;
     const colorDot = c.color ? `<span class="char-color-dot" style="background:${esc(c.color)};border-color:${esc(c.color)}"></span>` : '';
     const roleBadge = c.role ? `<span class="role-badge ${c.role==='player'?'player':'npc'}">${c.role==='player'?'Joueur':'NPC'}</span>` : '';
-    const duoBadge  = c.is_duo_main ? `<span class="duo-badge">Duo</span>` : '';
-    const slotBadge = c.player_slot ? `<span class="slot-badge">J${c.player_slot}</span>` : '';
+    const typeBadge = c.role_type ? `<span class="role-badge" style="opacity:.7">${c.role_type}</span>` : '';
     const tr = document.createElement('tr');
     if (c.id === state.selectedCharId) tr.classList.add('selected');
     tr.innerHTML = `
@@ -1752,7 +1752,7 @@ function renderCharactersTable() {
         <span>${esc(c.name)}<small>${esc(c.summary)}</small></span>
       </td>
       <td>${esc(c.actor_name||'')}</td>
-      <td style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${roleBadge}${duoBadge}${slotBadge}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${roleBadge}${typeBadge}</td>
       <td><span class="badge badge-act">${sceneCount} scène${sceneCount!==1?'s':''}</span></td>`;
     tr.addEventListener('click', () => openCharPanel(c.id));
     tbody.appendChild(tr);
@@ -1777,29 +1777,22 @@ function openCharPanel(id) {
           ${field('ID', 'edit-input', 'id', c.id, 'text', true)}
         </div>
         <div class="field-row">
-          ${fieldSelect('Acteur', 'actor_name', c.actor_name, ['Lysa','Colin','Diane','Pierre',''])}
-          ${fieldSelect('Rôle scène', 'role_type', c.role_type, ['principal','secondaire'])}
+          ${fieldSelect('Acteur', 'actor_name', c.actor_name, ['Lily','Marco','Mina','Anim','Henri',''])}
+          ${fieldSelect('Rôle', 'role_type', c.role_type, ['principal','secondaire'])}
         </div>
         <div class="field-row">
           ${fieldSelect('Type', 'role', c.role||'player', ['player','npc'])}
-          ${fieldSelect('Slot joueur', 'player_slot', String(c.player_slot||''), ['1','2','3','4',''])}
         </div>
-        <div class="field-row" style="align-items:center;gap:8px">
-          <div class="field-group" style="flex:1">
-            <div class="field-label">Couleur</div>
-            <div style="display:flex;gap:6px;align-items:center">
-              <span class="color-preview" id="char-color-preview" style="background:${esc(c.color||'#888888')}"></span>
-              <input type="color" id="char-color-picker" value="${esc(c.color||'#888888')}"
-                oninput="document.getElementById('char-color-hex').value=this.value;document.getElementById('char-color-preview').style.background=this.value"
-                style="width:36px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none">
-              <input class="edit-input" id="char-color-hex" data-field="color" value="${esc(c.color||'#888888')}"
-                style="width:80px"
-                oninput="document.getElementById('char-color-picker').value=this.value;document.getElementById('char-color-preview').style.background=this.value">
-            </div>
-          </div>
-          <div class="field-group" style="flex:1">
-            <div class="field-label">Duo principal</div>
-            <label class="edit-checkbox-row"><input type="checkbox" id="cb-duo-main" ${c.is_duo_main?'checked':''}> Personnage du duo</label>
+        <div class="field-group">
+          <div class="field-label">Couleur</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="color-preview" id="char-color-preview" style="background:${esc(c.color||'#888888')}"></span>
+            <input type="color" id="char-color-picker" value="${esc(c.color||'#888888')}"
+              oninput="document.getElementById('char-color-hex').value=this.value;document.getElementById('char-color-preview').style.background=this.value"
+              style="width:36px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:none">
+            <input class="edit-input" id="char-color-hex" data-field="color" value="${esc(c.color||'#888888')}"
+              style="width:80px"
+              oninput="document.getElementById('char-color-picker').value=this.value;document.getElementById('char-color-preview').style.background=this.value">
           </div>
         </div>
       </div>
@@ -1831,10 +1824,6 @@ function saveChar() {
     c[f] = el.tagName==='SELECT' ? el.value : el.value;
   });
   c.image = document.getElementById('char-img-url')?.value || '';
-  c.is_duo_main = document.getElementById('cb-duo-main')?.checked || false;
-  // player_slot as int or null
-  const slotVal = c.player_slot;
-  c.player_slot = slotVal && slotVal !== '' ? parseInt(slotVal) : null;
   markModified();
   renderCharactersTable();
   document.getElementById('panel-char-title').textContent = c.name;
@@ -1878,7 +1867,7 @@ function addChar() {
   const id = 'char-' + Date.now();
   currentFilm().characters.push({
     id, name:'Nouveau personnage', actor_name:'',
-    role:'player', player_slot:null, is_duo_main:false, color:'#888888',
+    role:'player', color:'#888888',
     role_type:'secondaire', summary:'', objective:'', fear:'', notes:''
   });
   markModified();
