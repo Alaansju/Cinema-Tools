@@ -3730,7 +3730,7 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
         .attr('width',4).attr('x',-NW/2+3).attr('rx',2);
 
       g.append('text').attr('class','dg-speaker-name')
-        .attr('x',-NW/2+11).attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text2)');
+        .attr('x',-NW/2+42).attr('font-size','9px').attr('font-weight','700').attr('fill','var(--text2)');
 
       const fo = g.append('foreignObject').attr('class','dg-node-fo')
         .attr('x',-NW/2+10).attr('width',NW-20).attr('height',64)
@@ -3746,16 +3746,16 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
           markModified();
           // Auto-height from actual scrollHeight
           const sh = this.scrollHeight || 24;
-          const nh = Math.max(64, 36 + sh);
+          const nh = Math.max(76, 49 + sh);
           d.nh = nh; d.nw = NW;
           const nodeEl = document.querySelector(`g.dg-node[data-id="${d.id}"]`);
           if (nodeEl) { _dgApplyNodeSizeOnly(d3.select(nodeEl), nh); _gs.tick?.(); }
         });
 
-      // Character avatar image (top-right of node)
+      // Character avatar image (top-left of node, beside speaker name)
       g.append('image').attr('class','dg-char-img')
-        .attr('width',18).attr('height',18).attr('preserveAspectRatio','xMidYMid slice')
-        .style('border-radius','3px').attr('display','none');
+        .attr('width',28).attr('height',28).attr('preserveAspectRatio','xMidYMid slice')
+        .style('border-radius','4px').attr('display','none');
 
       g.append('title');
 
@@ -3828,8 +3828,8 @@ function _dgRenderNodes(nodeG, nodes, seqId) {
 function _dgApplyNodeSizeOnly(g, nh) {
   g.select('.dg-node-bg').attr('height', nh).attr('y', -nh/2);
   g.select('.dg-speaker-bar').attr('height', nh-10).attr('y', -nh/2+5);
-  g.select('.dg-speaker-name').attr('y', -nh/2+16);
-  g.select('.dg-node-fo').attr('y', -nh/2+23);
+  g.select('.dg-speaker-name').attr('y', -nh/2+20);
+  g.select('.dg-node-fo').attr('y', -nh/2+36);
   g.select('.dg-node-del').attr('y', -nh/2+14);
 }
 
@@ -3898,13 +3898,13 @@ function _dgApplyNodeStyle(g, d, seqId) {
     let nh;
     const divEl = g.select('.dg-node-fo div').node();
     if (divEl && divEl.scrollHeight > 0) {
-      nh = Math.max(64, 36 + divEl.scrollHeight);
+      nh = Math.max(76, 49 + divEl.scrollHeight);
     } else {
       const t = nd.text_fr || '';
       const newlines = (t.match(/\n/g)||[]).length;
       const charLines = Math.ceil(t.length / 22) || 1;
       const lines = Math.max(newlines + 1, charLines, 2);
-      nh = Math.max(64, 36 + lines * 14);
+      nh = Math.max(76, 49 + lines * 14);
     }
     d.nh = nh; d.nw = NW;
 
@@ -3919,10 +3919,10 @@ function _dgApplyNodeStyle(g, d, seqId) {
       .attr('fill', char?.color || '#666');
 
     g.select('.dg-speaker-name')
-      .attr('y', -nh/2+16)
+      .attr('y', -nh/2+20)
       .text(char?.name || nd.speaker_id || '');
 
-    g.select('.dg-node-fo').attr('y', -nh/2+23).attr('height', nh-34);
+    g.select('.dg-node-fo').attr('y', -nh/2+36).attr('height', nh-47);
 
     const textDiv = g.select('.dg-node-fo div');
     if (!textDiv.empty() && document.activeElement !== textDiv.node())
@@ -3933,7 +3933,7 @@ function _dgApplyNodeStyle(g, d, seqId) {
     const charImg = g.select('.dg-char-img');
     if (char?.image) {
       charImg.attr('href', char.image).attr('display', null)
-        .attr('x', -NW/2 + 8).attr('y', -nh/2 + 2);
+        .attr('x', -NW/2 + 9).attr('y', -nh/2 + 6);
     } else {
       charImg.attr('display', 'none');
     }
