@@ -674,6 +674,38 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .dlg-table-wrap td.key-col { font-family:monospace; font-size:10px; color:var(--text3); max-width:180px; }
 .dlg-table-wrap td.text-col { max-width:320px; }
 
+/* ── Dialogue: View E — Rythmo ────────────────────────────────── */
+.ry-layout { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+.ry-layout .filter-chip.active { background:var(--accent); }
+.ry-label { font-size:11px; color:var(--text3); }
+.ry-layout .dlg-graph-toolbar select, .ry-layout .dlg-graph-toolbar input, .ry-node-fields select, .ry-node-fields input { width:auto; }
+.ry-stage { padding:16px 12px; background:var(--bg); border-bottom:1px solid var(--border); flex-shrink:0; }
+.ry-band { position:relative; overflow:hidden; background:#101116; border:1px solid var(--border); border-radius:var(--radius); }
+.ry-lane { position:absolute; left:0; right:0; border-top:1px solid #262833; }
+.ry-lane-name { position:absolute; left:6px; top:2px; font-size:10px; font-weight:700; opacity:.85; z-index:3; }
+.ry-track { position:absolute; left:0; top:0; bottom:0; will-change:transform; }
+.ry-cue { position:absolute; display:flex; align-items:center; padding:0 4px; box-sizing:border-box; overflow:hidden; white-space:nowrap;
+  color:#f2f3f7; font-size:20px; font-weight:600; border-left:3px solid var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); }
+.ry-cue.on { background:color-mix(in srgb,var(--c) 32%,transparent); }
+.ry-cue-text { display:inline-block; transform-origin:left center; }
+.ry-cue.ry-strip { font-size:13px; font-weight:500; color:#c5c8d6; }
+.ry-cue.ry-all { font-size:34px; justify-content:flex-start; z-index:2; background:color-mix(in srgb,var(--c) 26%,#101116); }
+.ry-cue.ry-instruction { border:1px dashed var(--c); font-style:italic; font-weight:500; }
+.ry-cue.ry-action { border:1px solid var(--c); border-radius:4px; text-transform:uppercase; letter-spacing:.04em; font-size:15px; }
+.ry-cue.ry-style-cri { text-transform:uppercase; font-weight:800; }
+.ry-cue.ry-style-chuchote { font-style:italic; font-weight:400; opacity:.75; }
+.ry-cue.ry-style-chante { font-style:italic; letter-spacing:.06em; }
+.ry-cue.ry-style-pense { font-weight:400; opacity:.85; border-left-style:dotted; }
+.ry-event { position:absolute; top:0; width:0; border-left:1px dotted var(--c-fbi); }
+.ry-playhead { position:absolute; top:0; bottom:0; left:22%; width:2px; background:#ff4d4d; z-index:4; pointer-events:none; }
+.ry-rec { position:absolute; right:8px; top:6px; font-size:11px; font-weight:700; color:#ff4d4d; opacity:.15; z-index:4; }
+.ry-rec.on { opacity:1; }
+.ry-cues { flex:1; overflow:auto; }
+.ry-cues td, .ry-cues th { padding:6px 10px; font-size:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.ry-node-fields { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.dlg-node-card.type-instruction { border-style:dashed; }
+.dlg-node-card.type-action { border-color:var(--warning); }
+
 /* ── Dialogue: View D — Node graph ────────────────────────────── */
 .dlg-graph-layout { display:flex; flex-direction:column; flex:1; overflow:hidden; }
 .dlg-graph-toolbar {
@@ -988,6 +1020,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
         <button class="dlg-subnav-btn"        data-view="editor" onclick="dlgSwitchView('editor')">✏ Éditeur de nœuds</button>
         <button class="dlg-subnav-btn"        data-view="table"  onclick="dlgSwitchView('table')">📊 Tableau global</button>
         <button class="dlg-subnav-btn"        data-view="graph"  onclick="dlgSwitchView('graph')">🕸 Graphe</button>
+        <button class="dlg-subnav-btn"        data-view="rythmo" onclick="dlgSwitchView('rythmo')">🎬 Rythmo</button>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
           <button class="btn-ghost btn-sm" onclick="exportDialogueCSV()">↓ Export CSV</button>
           <button class="btn-ghost btn-sm" onclick="addSequence()">+ Séquence</button>
@@ -3117,7 +3150,9 @@ function dlgSwitchView(view) {
   else if (view === 'editor') renderDlgEditor(state.selectedSeqId);
   else if (view === 'table')  renderDlgTable();
   else if (view === 'graph')  { renderDlgNodeGraph(state.selectedSeqId); }
+  else if (view === 'rythmo') renderDlgRythmo(state.selectedSeqId);
   if (view !== 'graph') _dgStopKeyboardShortcuts();
+  if (view !== 'rythmo') _ryStop();
 }
 
 function renderDialogues() {
@@ -3309,7 +3344,7 @@ function _makeNodeCard(seqId, node) {
       </div>
       <select style="background:none;border:none;color:var(--text2);font-size:11px;cursor:pointer"
         onchange="saveNodeField('${seqId}','${node.id}','type',this.value);this.closest('.dlg-node-card').className='dlg-node-card type-'+this.value">
-        ${['dialogue','event','entry','exit'].map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
+        ${RY_NODE_TYPES.map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
       </select>
       <select style="background:none;border:none;font-size:11px;cursor:pointer;color:${_dlgVersionColor(node.version||'all')}"
         onchange="saveNodeField('${seqId}','${node.id}','version',this.value)">${verOpts}</select>
@@ -3332,7 +3367,8 @@ function _makeNodeCard(seqId, node) {
       <input type="number" min="0" style="width:60px;padding:4px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:12px"
         placeholder="n" value="${node.rhythm_syllables||''}"
         oninput="saveNodeField('${seqId}','${node.id}','rhythm_syllables',+this.value)">
-    </div>`;
+    </div>
+    ${_ryNodeFieldsHtml(seqId, node, 'saveNodeField')}`;
   return card;
 }
 
@@ -3988,7 +4024,7 @@ function _dgShowEditPanel(nodeId, seqId) {
   }
 
   const charOpts = _dlgChars().map(c => `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
-  const typeOpts = ['dialogue','event','entry','exit'].map(t =>
+  const typeOpts = RY_NODE_TYPES.map(t =>
     `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
   const effVer = _dgNodeEffectiveVersion(nodeId);
   const effVerColor = effVer.includes('→') ? 'var(--text3)' : _dlgVersionColor(effVer);
@@ -4040,6 +4076,10 @@ function _dgShowEditPanel(nodeId, seqId) {
           <input type="number" class="edit-input" style="width:100%" value="${node.rhythm_syllables||''}"
             oninput="_dgSaveNodeField('${seqId}','${nodeId}','rhythm_syllables',+this.value)">
         </div>
+      </div>
+      <div>
+        <div class="dlg-nep-label">Rythmo</div>
+        ${_ryNodeFieldsHtml(seqId, node, '_dgSaveNodeField')}
       </div>
       <div>
         <div class="dlg-nep-label">Clé locale</div>
@@ -4542,6 +4582,291 @@ function saveNodeField(seqId, nodeId, field, value) {
   node[field] = value;
   markModified();
 }
+
+// ══════════════════════════════════════════════════════════════════
+// RYTHMO — résolution d'une séquence en timeline + aperçu
+// La même résolution existe côté Unity (RythmoTimeline.cs) : toute
+// modification des règles doit être reportée des deux côtés.
+// ══════════════════════════════════════════════════════════════════
+
+const RY_NODE_TYPES = ['dialogue','instruction','action','event','entry','exit'];
+const RY_STYLES     = ['normal','cri','chuchote','chante','pense'];
+const RY_TRIGGERS   = [['manual','Manuel (code)'],['scene_start','Début de scène'],['channel','Interact channel'],['checklist','Checklist validée']];
+const RY_GAMEPLAY   = [['continue','Le jeu continue'],['slow','Ralenti'],['freeze','Figé']];
+const RY_LEAD_MS    = 1500; // temps d'avance avant la première réplique
+
+let _ry = { seqId: null, players: 4, pps: 220, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
+
+// Comédiens dans l'ordre des joueurs : personnages "player" du film realite.
+function _ryActors() {
+  const realite = (state.data?.films || []).find(f => f.id === 'realite');
+  const names = (realite?.characters || []).filter(c => c.role !== 'npc').map(c => c.name);
+  return names.length ? names : ['Lily','Marco','Mina','Anim'];
+}
+
+function _ryIsSpoken(type) { return !type || type === 'dialogue' || type === 'canon' || type === 'instruction' || type === 'action'; }
+
+// Durée d'un nœud : valeur saisie, sinon estimée depuis le texte.
+function _ryDuration(node) {
+  if (node.rhythm_duration_ms > 0) return node.rhythm_duration_ms;
+  const letters = (node.text_fr || '').replace(/\s+/g, '').length;
+  const min = (node.type === 'instruction' || node.type === 'action') ? 1500 : 600;
+  return Math.max(min, letters * 70);
+}
+
+// Ordre de lecture : graphe (liens filtrés par version) ou, sans aucun lien, ordre de la liste.
+function _ryWalk(seq, playerCount) {
+  const nodes = seq.nodes || [];
+  const ver = { 2: 'duo', 3: 'trio', 4: 'quatuor' }[playerCount];
+  const isCommon = v => !v || v === 'other' || v === 'all';
+  const hasLinks = nodes.some(n => (n.links || []).length);
+  if (!hasLinks) return nodes.filter(n => isCommon(n.version) || n.version === ver);
+
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const targets = new Set();
+  nodes.forEach(n => (n.links || []).forEach(l => targets.add(l.target)));
+  let cur = nodes.find(n => n.type === 'entry') || nodes.find(n => !targets.has(n.id)) || nodes[0];
+  const order = [], seen = new Set();
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    order.push(cur);
+    const links = cur.links || [];
+    const pick = links.find(l => l.version === ver) || links.find(l => isCommon(l.version));
+    cur = pick ? byId.get(pick.target) : null;
+  }
+  return order;
+}
+
+// Séquence → { lanes, cues, total_ms }. Une réplique dont le comédien est absent est sautée.
+// Une réplique « toutes les lignes » n'occupe pas de ligne à elle : elle recouvre celles des autres.
+function ryResolve(seq, playerCount) {
+  const actors = _ryActors().slice(0, playerCount);
+  const lanes = actors.map(actor => {
+    const role = _dlgChars().find(c => c.role !== 'npc' && (c.actor_name || c.name) === actor);
+    return { actor, name: role?.name || actor, color: role?.color || '#888888' };
+  });
+  const cues = [];
+  let end = 0, lastStart = 0;
+  _ryWalk(seq, playerCount).forEach(node => {
+    if (node.type === 'event') { cues.push({ node, type: 'event', lane: -1, start: end, dur: 0 }); return; }
+    if (!_ryIsSpoken(node.type)) return;
+    const char = _charById(node.speaker_id);
+    let lane = -1; // -1 = bandeau (PNJ, consigne sans personnage)
+    if (char && char.role !== 'npc') {
+      lane = actors.indexOf(char.actor_name || char.name);
+      if (lane < 0) return;
+      if (node.scope === 'all') lane = -1;
+    }
+    const dur = _ryDuration(node);
+    const delay = node.delay_ms || 0;
+    const start = Math.max(0, (node.timing === 'with' && cues.length ? lastStart : end) + delay);
+    cues.push({ node, type: node.type || 'dialogue', lane, start, dur, all: node.scope === 'all',
+                name: char?.name || '', color: char?.color || '#8b8fa8' });
+    lastStart = start;
+    end = Math.max(end, start + dur);
+  });
+  // Pas de ligne vide : seuls les comédiens qui ont au moins une réplique gardent une ligne.
+  const used = lanes.map((_, i) => i).filter(i => cues.some(c => c.lane === i));
+  cues.forEach(c => { if (c.lane >= 0) c.lane = used.indexOf(c.lane); });
+  return { lanes: used.length ? used.map(i => lanes[i]) : lanes.slice(0, 1), cues, total_ms: end };
+}
+
+// Champs rythmo d'un nœud (carte de l'éditeur de nœuds et panneau du graphe).
+function _ryNodeFieldsHtml(seqId, node, saveFn) {
+  const sel = (field, opts, cur) => `<select class="edit-select" style="font-size:11px;padding:3px 6px"
+      onchange="${saveFn}('${seqId}','${node.id}','${field}',this.value)">
+      ${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  return `<div class="ry-node-fields">
+    ${sel('timing', [['after','Après la précédente'],['with','En même temps']], node.timing || 'after')}
+    <input type="number" class="edit-input" style="width:74px;font-size:11px;padding:3px 6px" placeholder="délai ms"
+      title="Délai en ms (négatif = chevauche la précédente)" value="${node.delay_ms || ''}"
+      oninput="${saveFn}('${seqId}','${node.id}','delay_ms',+this.value)">
+    ${sel('scope', [['speaker','Sa ligne'],['all','Toutes les lignes']], node.scope || 'speaker')}
+    ${sel('style', RY_STYLES.map(s => [s, s]), node.style || 'normal')}
+  </div>`;
+}
+
+// ── Vue Rythmo ────────────────────────────────────────────────────
+
+function renderDlgRythmo(seqId) {
+  const viewArea = document.getElementById('dlg-view-area');
+  if (!viewArea) return;
+  _ryStop();
+  const seqs = _dlgSeqs();
+  if (!seqId && seqs.length) seqId = seqs[0].id;
+  state.selectedSeqId = seqId;
+  const seq = _seqById(seqId);
+  if (!seq) {
+    viewArea.innerHTML = '<div class="empty-state" style="flex:1"><p>Crée une séquence pour tester la bande rythmo</p></div>';
+    return;
+  }
+  _ry.seqId = seqId;
+  _ry.t = -RY_LEAD_MS;
+  const trig = seq.trigger || { type: 'manual', key: '' };
+  const opt = (list, cur) => list.map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('');
+
+  viewArea.innerHTML = `<div class="ry-layout">
+    <div class="dlg-graph-toolbar">
+      <select class="edit-select" style="max-width:220px;font-size:12px;padding:4px 8px" onchange="renderDlgRythmo(this.value)">
+        ${seqs.map(s => `<option value="${s.id}" ${s.id === seqId ? 'selected' : ''}>${esc(s.label || s.id)}</option>`).join('')}
+      </select>
+      <div class="sep"></div>
+      <button class="btn-primary btn-sm" id="ry-play-btn" onclick="_ryToggle()">▶ Lire</button>
+      <button class="btn-ghost btn-sm" onclick="_ryRewind()">⏮</button>
+      <div class="sep"></div>
+      <span class="ry-label">Joueurs</span>
+      ${[2, 3, 4].map(n => `<button class="filter-chip ${n === _ry.players ? 'active' : ''}" onclick="_ry.players=${n};renderDlgRythmo('${seqId}')">${n}</button>`).join('')}
+      <div class="sep"></div>
+      <span class="ry-label">Vitesse</span>
+      <input type="range" min="80" max="500" step="10" value="${_ry.pps}" oninput="_ry.pps=+this.value;_ryBuildBand()">
+      <span class="ry-label" style="margin-left:auto">Espace = lire / pause</span>
+    </div>
+    <div class="dlg-graph-toolbar">
+      <span class="ry-label">Déclencheur</span>
+      <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','trigger.type',this.value)">${opt(RY_TRIGGERS, trig.type)}</select>
+      <input class="edit-input" style="width:200px;font-size:12px;padding:4px 8px" placeholder="clé (ex : vase_casse)" value="${esc(trig.key || '')}"
+        oninput="_rySaveSeq('${seqId}','trigger.key',this.value)">
+      <div class="sep"></div>
+      <span class="ry-label">Pendant la séquence</span>
+      <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','gameplay',this.value)">${opt(RY_GAMEPLAY, seq.gameplay || 'continue')}</select>
+    </div>
+    <div class="ry-stage"><div class="ry-band" id="ry-band"></div></div>
+    <div class="ry-cues" id="ry-cues"></div>
+  </div>`;
+  _ryBuildBand();
+  _ryBuildCueTable();
+}
+
+function _rySaveSeq(seqId, path, value) {
+  const seq = _seqById(seqId);
+  if (!seq) return;
+  if (path.startsWith('trigger.')) {
+    if (!seq.trigger) seq.trigger = { type: 'manual', key: '' };
+    seq.trigger[path.slice(8)] = value;
+  } else seq[path] = value;
+  markModified();
+}
+
+const RY_LANE_H = 46, RY_STRIP_H = 30;
+
+function _ryBuildBand() {
+  const band = document.getElementById('ry-band');
+  const seq = _seqById(_ry.seqId);
+  if (!band || !seq) return;
+  const tl = _ry.timeline = ryResolve(seq, _ry.players);
+  const px = ms => ms / 1000 * _ry.pps;
+  const lanesH = tl.lanes.length * RY_LANE_H;
+  band.style.height = (RY_STRIP_H + lanesH) + 'px';
+
+  const laneRows = tl.lanes.map((l, i) => `<div class="ry-lane" style="top:${RY_STRIP_H + i * RY_LANE_H}px;height:${RY_LANE_H}px">
+      <span class="ry-lane-name" style="color:${esc(l.color)}">${esc(l.name)}</span></div>`).join('');
+
+  const cueHtml = tl.cues.map((c, i) => {
+    if (c.type === 'event') return `<div class="ry-event" style="left:${px(c.start)}px;height:${RY_STRIP_H + lanesH}px" title="${esc(c.node.text_fr || 'event')}"></div>`;
+    const strip = c.lane < 0 && !c.all;
+    const top = c.all ? RY_STRIP_H : strip ? 0 : RY_STRIP_H + c.lane * RY_LANE_H;
+    const h = c.all ? lanesH : strip ? RY_STRIP_H : RY_LANE_H;
+    const prefix = c.type === 'action' ? '⚡ ' : c.type === 'instruction' ? '➜ ' : (strip && c.name ? c.name + ' : ' : '');
+    return `<div class="ry-cue ry-${c.type} ry-style-${esc(c.node.style || 'normal')}${c.all ? ' ry-all' : ''}${strip ? ' ry-strip' : ''}" data-i="${i}"
+        style="left:${px(c.start)}px;width:${px(c.dur)}px;top:${top}px;height:${h}px;--c:${esc(c.color)}">
+        <span class="ry-cue-text">${esc(prefix + (c.node.text_fr || '…'))}</span></div>`;
+  }).join('');
+
+  band.innerHTML = `${laneRows}
+    <div class="ry-track" id="ry-track">${cueHtml}</div>
+    <div class="ry-playhead"></div>
+    <div class="ry-rec" id="ry-rec">● REC</div>`;
+
+  // Le texte est étiré sur la durée de la réplique : on lit à la vitesse de la barre.
+  band.querySelectorAll('.ry-cue').forEach(el => {
+    const span = el.firstElementChild;
+    const natural = span.offsetWidth, avail = el.clientWidth - 8;
+    if (natural > 0 && avail > 0) span.style.transform = `scaleX(${Math.min(3, Math.max(0.35, avail / natural))})`;
+  });
+  _ryDraw();
+}
+
+function _ryBuildCueTable() {
+  const box = document.getElementById('ry-cues');
+  const tl = _ry.timeline;
+  if (!box || !tl) return;
+  const spoken = tl.cues.filter(c => c.type !== 'event');
+  if (!spoken.length) { box.innerHTML = '<div class="empty-state"><p>Aucune réplique jouable avec ce nombre de joueurs</p></div>'; return; }
+  const seqId = _ry.seqId;
+  box.innerHTML = `<table class="data-table"><thead><tr>
+      <th>Début</th><th>Personnage</th><th>Type</th><th>Texte</th><th>Placement</th><th>Durée (ms)</th>
+    </tr></thead><tbody>${spoken.map(c => `<tr>
+      <td style="font-family:monospace;font-size:11px;color:var(--text3)">${(c.start / 1000).toFixed(2)}s</td>
+      <td><span style="color:${esc(c.color)};font-weight:600">${esc(c.name || '—')}</span></td>
+      <td style="font-size:11px;color:var(--text2)">${esc(c.type)}</td>
+      <td><input class="edit-input" style="width:100%;font-size:12px" value="${esc(c.node.text_fr || '')}"
+        onchange="_rySaveNode('${seqId}','${c.node.id}','text_fr',this.value)"></td>
+      <td>${_ryNodeFieldsHtml(seqId, c.node, '_rySaveNode')}</td>
+      <td><input type="number" min="0" class="edit-input" style="width:80px;font-size:12px" placeholder="${_ryDuration({ ...c.node, rhythm_duration_ms: 0 })}"
+        value="${c.node.rhythm_duration_ms || ''}" onchange="_rySaveNode('${seqId}','${c.node.id}','rhythm_duration_ms',+this.value)"></td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+let _ryRefreshTimer = 0;
+function _rySaveNode(seqId, nodeId, field, value) {
+  saveNodeField(seqId, nodeId, field, value);
+  if (state.dlgView !== 'rythmo') return;
+  // Différé : laisse le champ en cours de saisie garder le focus.
+  clearTimeout(_ryRefreshTimer);
+  _ryRefreshTimer = setTimeout(() => {
+    _ryBuildBand();
+    if (!document.getElementById('ry-cues')?.contains(document.activeElement)) _ryBuildCueTable();
+  }, 400);
+}
+
+function _ryDraw() {
+  const track = document.getElementById('ry-track');
+  const band = document.getElementById('ry-band');
+  if (!track || !band || !_ry.timeline) return false;
+  const headX = band.clientWidth * 0.22;
+  track.style.transform = `translateX(${headX - _ry.t / 1000 * _ry.pps}px)`;
+  let rec = false;
+  _ry.timeline.cues.forEach((c, i) => {
+    const on = c.type !== 'event' && _ry.t >= c.start && _ry.t <= c.start + c.dur;
+    track.querySelector(`.ry-cue[data-i="${i}"]`)?.classList.toggle('on', on);
+    if (on && c.type === 'dialogue' && (c.lane >= 0 || c.all)) rec = true;
+  });
+  document.getElementById('ry-rec')?.classList.toggle('on', rec);
+  return true;
+}
+
+function _ryFrame(now) {
+  if (!_ry.playing) return;
+  _ry.t += now - _ry.last;
+  _ry.last = now;
+  if (!_ryDraw() || _ry.t > _ry.timeline.total_ms + 1000) { _ryStop(); _ry.t = -RY_LEAD_MS; _ryDraw(); return; }
+  _ry.raf = requestAnimationFrame(_ryFrame);
+}
+
+function _ryToggle() {
+  if (_ry.playing) { _ryStop(); return; }
+  _ry.playing = true;
+  _ry.last = performance.now();
+  const btn = document.getElementById('ry-play-btn');
+  if (btn) btn.textContent = '⏸ Pause';
+  _ry.raf = requestAnimationFrame(_ryFrame);
+}
+
+function _ryStop() {
+  _ry.playing = false;
+  cancelAnimationFrame(_ry.raf);
+  const btn = document.getElementById('ry-play-btn');
+  if (btn) btn.textContent = '▶ Lire';
+}
+
+function _ryRewind() { _ryStop(); _ry.t = -RY_LEAD_MS; _ryDraw(); }
+
+document.addEventListener('keydown', e => {
+  if (e.code !== 'Space' || state.activeTab !== 'dialogues' || state.dlgView !== 'rythmo') return;
+  if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+  e.preventDefault();
+  _ryToggle();
+});
 
 // ── CSV Export ────────────────────────────────────────────────────
 
