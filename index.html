@@ -1869,13 +1869,51 @@ function saveChar() {
   toast('Personnage sauvegardé', 'success');
 }
 
+const CHAR_IMG_MAX_PX = 256;      // côté max d'un portrait stocké dans le JSON
+const CHAR_IMG_MAX_LEN = 120000;  // au-delà, un portrait déjà enregistré est réduit au chargement
+
+// Réduit une image (data URL) pour que le JSON reste léger. Rend l'original si l'image est illisible.
+function _shrinkImage(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, CHAR_IMG_MAX_PX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * k));
+      canvas.height = Math.max(1, Math.round(img.height * k));
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      const out = canvas.toDataURL('image/png');
+      resolve(out.length < dataUrl.length ? out : dataUrl);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// Portraits trop lourds déjà présents dans les données : réduits une fois, à sauvegarder ensuite.
+async function _shrinkAllCharImages() {
+  let count = 0;
+  for (const film of state.data?.films || []) {
+    for (const c of film.characters || []) {
+      if (!c.image || !c.image.startsWith('data:') || c.image.length < CHAR_IMG_MAX_LEN) continue;
+      const small = await _shrinkImage(c.image);
+      if (small !== c.image) { c.image = small; count++; }
+    }
+  }
+  if (!count) return;
+  markModified();
+  renderAll();
+  toast(`${count} portrait(s) trop lourd(s) réduit(s) — sauvegarde pour alléger le fichier`, 'success');
+}
+
 function loadCharImage(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('char-img-url').value = e.target.result;
-    updateCharAvatarPreview(e.target.result);
+  reader.onload = async e => {
+    const src = await _shrinkImage(e.target.result);
+    document.getElementById('char-img-url').value = src;
+    updateCharAvatarPreview(src);
     saveChar(); // image set programmatically, auto-save won't fire automatically
   };
   reader.readAsDataURL(file);
@@ -2192,10 +2230,21 @@ async function ghPull() {
   ghSetStatus('busy');
   try {
     const file = await ghApiGet(cfg.path);
-    const raw = decodeURIComponent(escape(atob(file.content.replace(/\n/g,'')))).replace(/^﻿/, '');
+    // Au-delà de 1 Mo l'API "contents" renvoie un contenu vide : on passe par l'API des blobs.
+    let b64 = file.content;
+    if (!b64) {
+      const r = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/git/blobs/${file.sha}`, {
+        headers: { Authorization: `token ${cfg.token}`, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!r.ok) throw new Error(`GitHub ${r.status}: ${r.statusText}`);
+      b64 = (await r.json()).content;
+    }
+    const bytes = Uint8Array.from(atob(b64.replace(/\n/g,'')), c => c.charCodeAt(0));
+    const raw = new TextDecoder('utf-8').decode(bytes); // TextDecoder retire le BOM éventuel
     const json = JSON.parse(raw);
     loadData(json);
-    localStorage.setItem('se-story-data', JSON.stringify(json));
+    try { localStorage.setItem('se-story-data', JSON.stringify(json)); } catch (e) { /* quota : GitHub reste la source */ }
+    _shrinkAllCharImages();
     ghSetStatus('ok');
     if (statusEl) statusEl.textContent = '✓ Données chargées depuis GitHub';
     closeGhSettings();
