@@ -682,7 +682,13 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .ry-stage { padding:16px 12px; background:var(--bg); border-bottom:1px solid var(--border); flex-shrink:0; }
 .ry-band { position:relative; overflow:hidden; background:#101116; border:1px solid var(--border); border-radius:var(--radius); }
 .ry-lane { position:absolute; left:0; right:0; border-top:1px solid #262833; }
-.ry-lane-name { position:absolute; left:6px; top:2px; font-size:10px; font-weight:700; opacity:.85; z-index:3; }
+.ry-lane-head { position:absolute; left:0; top:0; bottom:0; width:120px; display:flex; align-items:center; gap:6px; padding:0 6px; box-sizing:border-box;
+  background:#101116; border-right:1px solid #262833; z-index:3; }
+.ry-lane-head img, .ry-lane-dot { width:34px; height:34px; border-radius:50%; flex-shrink:0; object-fit:cover; border:2px solid transparent; box-sizing:border-box; }
+.ry-lane-dot { display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:14px; }
+.ry-lane-name { font-size:11px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ry-skipped { margin:12px; padding:10px 12px; border:1px solid var(--warning); border-radius:var(--radius); font-size:12px; color:var(--text2); display:flex; flex-direction:column; gap:4px; }
+.ry-skipped strong { color:var(--warning); }
 .ry-track { position:absolute; left:0; top:0; bottom:0; will-change:transform; }
 .ry-cue { position:absolute; display:flex; align-items:center; padding:0 4px; box-sizing:border-box; overflow:hidden; white-space:nowrap;
   color:#f2f3f7; font-size:20px; font-weight:600; border-left:3px solid var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); }
@@ -4594,8 +4600,10 @@ const RY_STYLES     = ['normal','cri','chuchote','chante','pense'];
 const RY_TRIGGERS   = [['manual','Manuel (code)'],['scene_start','Début de scène'],['channel','Interact channel'],['checklist','Checklist validée']];
 const RY_GAMEPLAY   = [['continue','Le jeu continue'],['slow','Ralenti'],['freeze','Figé']];
 const RY_LEAD_MS    = 1500; // temps d'avance avant la première réplique
+const RY_GAP_MS     = 50;   // silence par défaut entre deux répliques qui se suivent
+const RY_GUTTER     = 120;  // colonne des portraits à gauche de la bande
 
-let _ry = { seqId: null, players: 4, pps: 220, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
+let _ry = { seqId: null, players: 4, pps: 220, rate: 1, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
 
 // Comédiens dans l'ordre des joueurs : personnages "player" du film realite.
 function _ryActors() {
@@ -4614,7 +4622,9 @@ function _ryDuration(node) {
   return Math.max(min, letters * 70);
 }
 
-// Ordre de lecture : graphe (liens filtrés par version) ou, sans aucun lien, ordre de la liste.
+// Ordre de lecture. Graphe : on part de l'entrée (ou des nœuds sans lien entrant) et on suit TOUS les
+// liens valides pour ce nombre de joueurs (ceux de la version exacte s'il y en a, sinon les communs),
+// niveau par niveau, de haut en bas. Sans aucun lien : ordre de la liste.
 function _ryWalk(seq, playerCount) {
   const nodes = seq.nodes || [];
   const ver = { 2: 'duo', 3: 'trio', 4: 'quatuor' }[playerCount];
@@ -4623,43 +4633,71 @@ function _ryWalk(seq, playerCount) {
   if (!hasLinks) return nodes.filter(n => isCommon(n.version) || n.version === ver);
 
   const byId = new Map(nodes.map(n => [n.id, n]));
+  // Un lien créé depuis un nœud à plusieurs versions porte « duo→trio » : on teste chaque partie.
+  const parts = l => String(l.version || 'other').split('→');
+  const followed = n => {
+    const links = (n.links || []).filter(l => byId.has(l.target));
+    const exact = links.filter(l => parts(l).includes(ver));
+    return exact.length ? exact : links.filter(l => parts(l).some(isCommon));
+  };
   const targets = new Set();
   nodes.forEach(n => (n.links || []).forEach(l => targets.add(l.target)));
-  let cur = nodes.find(n => n.type === 'entry') || nodes.find(n => !targets.has(n.id)) || nodes[0];
-  const order = [], seen = new Set();
-  while (cur && !seen.has(cur.id)) {
-    seen.add(cur.id);
-    order.push(cur);
-    const links = cur.links || [];
-    const pick = links.find(l => l.version === ver) || links.find(l => isCommon(l.version));
-    cur = pick ? byId.get(pick.target) : null;
+  let roots = nodes.filter(n => n.type === 'entry');
+  if (!roots.length) roots = nodes.filter(n => !targets.has(n.id) && (n.links || []).length);
+  if (!roots.length) roots = nodes.slice(0, 1);
+
+  const reached = new Set(roots.map(n => n.id)), queue = [...roots], indeg = new Map();
+  while (queue.length) {
+    followed(queue.shift()).forEach(l => {
+      indeg.set(l.target, (indeg.get(l.target) || 0) + 1);
+      if (!reached.has(l.target)) { reached.add(l.target); queue.push(byId.get(l.target)); }
+    });
   }
-  return order;
+  const depth = new Map(), ready = nodes.filter(n => reached.has(n.id) && !indeg.get(n.id)), order = [];
+  ready.forEach(n => depth.set(n.id, 0));
+  while (ready.length) {
+    const n = ready.shift();
+    order.push(n);
+    followed(n).forEach(l => {
+      depth.set(l.target, Math.max(depth.get(l.target) || 0, depth.get(n.id) + 1));
+      indeg.set(l.target, indeg.get(l.target) - 1);
+      if (indeg.get(l.target) === 0) ready.push(byId.get(l.target));
+    });
+  }
+  return order.sort((a, b) => depth.get(a.id) - depth.get(b.id) || (a.y || 0) - (b.y || 0) || (a.x || 0) - (b.x || 0));
 }
 
-// Séquence → { lanes, cues, total_ms }. Une réplique dont le comédien est absent est sautée.
+// Séquence → { lanes, cues, total_ms, skipped }. Une réplique dont le comédien est absent est sautée.
 // Une réplique « toutes les lignes » n'occupe pas de ligne à elle : elle recouvre celles des autres.
 function ryResolve(seq, playerCount) {
   const actors = _ryActors().slice(0, playerCount);
+  const realite = (state.data?.films || []).find(f => f.id === 'realite')?.characters || [];
   const lanes = actors.map(actor => {
     const role = _dlgChars().find(c => c.role !== 'npc' && (c.actor_name || c.name) === actor);
-    return { actor, name: role?.name || actor, color: role?.color || '#888888' };
+    return { actor, name: role?.name || actor, color: role?.color || '#888888',
+             image: role?.image || realite.find(c => c.name === actor)?.image || '' };
   });
-  const cues = [];
+  const cues = [], skipped = [];
+  const order = _ryWalk(seq, playerCount);
+  (seq.nodes || []).forEach(n => {
+    if (_ryIsSpoken(n.type) && !order.includes(n))
+      skipped.push({ node: n, reason: `pas sur le chemin à ${playerCount} joueurs (non relié, ou lien d'une autre version)` });
+  });
   let end = 0, lastStart = 0;
-  _ryWalk(seq, playerCount).forEach(node => {
+  order.forEach(node => {
     if (node.type === 'event') { cues.push({ node, type: 'event', lane: -1, start: end, dur: 0 }); return; }
     if (!_ryIsSpoken(node.type)) return;
     const char = _charById(node.speaker_id);
     let lane = -1; // -1 = bandeau (PNJ, consigne sans personnage)
     if (char && char.role !== 'npc') {
       lane = actors.indexOf(char.actor_name || char.name);
-      if (lane < 0) return;
+      if (lane < 0) { skipped.push({ node, reason: `${char.actor_name || char.name} n'est pas présent à ${playerCount} joueurs` }); return; }
       if (node.scope === 'all') lane = -1;
     }
     const dur = _ryDuration(node);
     const delay = node.delay_ms || 0;
-    const start = Math.max(0, (node.timing === 'with' && cues.length ? lastStart : end) + delay);
+    const first = !cues.some(c => c.type !== 'event');
+    const start = Math.max(0, node.timing === 'with' && !first ? lastStart + delay : end + (first ? 0 : RY_GAP_MS) + delay);
     cues.push({ node, type: node.type || 'dialogue', lane, start, dur, all: node.scope === 'all',
                 name: char?.name || '', color: char?.color || '#8b8fa8' });
     lastStart = start;
@@ -4668,7 +4706,7 @@ function ryResolve(seq, playerCount) {
   // Pas de ligne vide : seuls les comédiens qui ont au moins une réplique gardent une ligne.
   const used = lanes.map((_, i) => i).filter(i => cues.some(c => c.lane === i));
   cues.forEach(c => { if (c.lane >= 0) c.lane = used.indexOf(c.lane); });
-  return { lanes: used.length ? used.map(i => lanes[i]) : lanes.slice(0, 1), cues, total_ms: end };
+  return { lanes: used.length ? used.map(i => lanes[i]) : lanes.slice(0, 1), cues, total_ms: end, skipped };
 }
 
 // Champs rythmo d'un nœud (carte de l'éditeur de nœuds et panneau du graphe).
@@ -4717,8 +4755,12 @@ function renderDlgRythmo(seqId) {
       <span class="ry-label">Joueurs</span>
       ${[2, 3, 4].map(n => `<button class="filter-chip ${n === _ry.players ? 'active' : ''}" onclick="_ry.players=${n};renderDlgRythmo('${seqId}')">${n}</button>`).join('')}
       <div class="sep"></div>
-      <span class="ry-label">Vitesse</span>
-      <input type="range" min="80" max="500" step="10" value="${_ry.pps}" oninput="_ry.pps=+this.value;_ryBuildBand()">
+      <span class="ry-label" id="ry-rate-label">Vitesse ×${_ry.rate.toFixed(1)}</span>
+      <input type="range" min="0.5" max="2" step="0.1" value="${_ry.rate}" title="Vitesse de lecture : le temps passe plus ou moins vite, la largeur des lettres ne change pas"
+        oninput="_ry.rate=+this.value;document.getElementById('ry-rate-label').textContent='Vitesse ×'+_ry.rate.toFixed(1)">
+      <span class="ry-label">Largeur du texte</span>
+      <input type="range" min="80" max="500" step="10" value="${_ry.pps}" title="Pixels par seconde : étire ou resserre le texte"
+        oninput="_ry.pps=+this.value;_ryBuildBand()">
       <span class="ry-label" style="margin-left:auto">Espace = lire / pause</span>
     </div>
     <div class="dlg-graph-toolbar">
@@ -4759,7 +4801,10 @@ function _ryBuildBand() {
   band.style.height = (RY_STRIP_H + lanesH) + 'px';
 
   const laneRows = tl.lanes.map((l, i) => `<div class="ry-lane" style="top:${RY_STRIP_H + i * RY_LANE_H}px;height:${RY_LANE_H}px">
-      <span class="ry-lane-name" style="color:${esc(l.color)}">${esc(l.name)}</span></div>`).join('');
+      <div class="ry-lane-head">
+        ${l.image ? `<img src="${esc(l.image)}" style="border-color:${esc(l.color)}">` : `<span class="ry-lane-dot" style="background:${esc(l.color)}">${esc(l.name.slice(0, 1))}</span>`}
+        <span class="ry-lane-name" style="color:${esc(l.color)}">${esc(l.name)}</span>
+      </div></div>`).join('');
 
   const cueHtml = tl.cues.map((c, i) => {
     if (c.type === 'event') return `<div class="ry-event" style="left:${px(c.start)}px;height:${RY_STRIP_H + lanesH}px" title="${esc(c.node.text_fr || 'event')}"></div>`;
@@ -4791,7 +4836,7 @@ function _ryBuildCueTable() {
   const tl = _ry.timeline;
   if (!box || !tl) return;
   const spoken = tl.cues.filter(c => c.type !== 'event');
-  if (!spoken.length) { box.innerHTML = '<div class="empty-state"><p>Aucune réplique jouable avec ce nombre de joueurs</p></div>'; return; }
+  if (!spoken.length) { box.innerHTML = '<div class="empty-state"><p>Aucune réplique jouable avec ce nombre de joueurs</p></div>' + _rySkippedHtml(tl); return; }
   const seqId = _ry.seqId;
   box.innerHTML = `<table class="data-table"><thead><tr>
       <th>Début</th><th>Personnage</th><th>Type</th><th>Texte</th><th>Placement</th><th>Durée (ms)</th>
@@ -4804,7 +4849,14 @@ function _ryBuildCueTable() {
       <td>${_ryNodeFieldsHtml(seqId, c.node, '_rySaveNode')}</td>
       <td><input type="number" min="0" class="edit-input" style="width:80px;font-size:12px" placeholder="${_ryDuration({ ...c.node, rhythm_duration_ms: 0 })}"
         value="${c.node.rhythm_duration_ms || ''}" onchange="_rySaveNode('${seqId}','${c.node.id}','rhythm_duration_ms',+this.value)"></td>
-    </tr>`).join('')}</tbody></table>`;
+    </tr>`).join('')}</tbody></table>` + _rySkippedHtml(tl);
+}
+
+// Répliques de la séquence absentes de la bande, avec la raison.
+function _rySkippedHtml(tl) {
+  if (!tl.skipped.length) return '';
+  return `<div class="ry-skipped"><strong>${tl.skipped.length} réplique(s) non affichée(s)</strong>
+    ${tl.skipped.map(k => `<div>« ${esc((k.node.text_fr || '…').slice(0, 60))} » — ${esc(k.reason)}</div>`).join('')}</div>`;
 }
 
 let _ryRefreshTimer = 0;
@@ -4823,7 +4875,8 @@ function _ryDraw() {
   const track = document.getElementById('ry-track');
   const band = document.getElementById('ry-band');
   if (!track || !band || !_ry.timeline) return false;
-  const headX = band.clientWidth * 0.22;
+  const headX = Math.max(RY_GUTTER + 60, band.clientWidth * 0.22);
+  band.querySelector('.ry-playhead').style.left = headX + 'px';
   track.style.transform = `translateX(${headX - _ry.t / 1000 * _ry.pps}px)`;
   let rec = false;
   _ry.timeline.cues.forEach((c, i) => {
@@ -4837,7 +4890,7 @@ function _ryDraw() {
 
 function _ryFrame(now) {
   if (!_ry.playing) return;
-  _ry.t += now - _ry.last;
+  _ry.t += (now - _ry.last) * _ry.rate;
   _ry.last = now;
   if (!_ryDraw() || _ry.t > _ry.timeline.total_ms + 1000) { _ryStop(); _ry.t = -RY_LEAD_MS; _ryDraw(); return; }
   _ry.raf = requestAnimationFrame(_ryFrame);
