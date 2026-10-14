@@ -694,6 +694,8 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   color:#f2f3f7; font-size:20px; font-weight:600; border-left:3px solid var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); }
 .ry-cue.on { background:color-mix(in srgb,var(--c) 32%,transparent); }
 .ry-cue { cursor:grab; touch-action:none; }
+.ry-band { cursor:ew-resize; touch-action:none; user-select:none; }
+.ry-band.scrubbing { cursor:grabbing; }
 .ry-cue.dragging { cursor:grabbing; outline:1px solid #fff; z-index:5; }
 .ry-drag-tip { position:absolute; top:4px; padding:2px 6px; border-radius:4px; background:#fff; color:#111; font-size:11px; font-weight:700; z-index:6; pointer-events:none; white-space:nowrap; }
 .ry-cue-text { display:inline-block; transform-origin:left center; }
@@ -4657,7 +4659,7 @@ const RY_TRIGGERS   = [['manual','Manuel (test / code)'],['scene_start','Début 
 const RY_REPEAT     = [['once','Une seule fois'],['always','À chaque fois'],['once_per_player','Une fois par joueur'],['once_per_life','Une fois par vie (rejouée après une mort de groupe)']];
 const RY_GAMEPLAY   = [['continue','Le jeu continue'],['slow','Ralenti'],['freeze','Figé']];
 const RY_LEAD_MS    = 1500; // temps d'avance avant la première réplique
-const RY_GAP_MS     = 500;  // silence par défaut entre deux répliques qui se suivent
+const RY_GAP_MS     = 250;  // silence par défaut entre deux répliques qui se suivent
 const RY_GRID_MS    = 100;  // pas de la grille quand on déplace une réplique à la souris
 const RY_GUTTER     = 120;  // colonne des portraits à gauche de la bande
 
@@ -4775,7 +4777,7 @@ function _ryNodeFieldsHtml(seqId, node, saveFn) {
   return `<div class="ry-node-fields">
     ${sel('timing', [['after','Après la précédente'],['with','En même temps']], node.timing || 'after')}
     <input type="number" class="edit-input" style="width:74px;font-size:11px;padding:3px 6px" placeholder="délai ms"
-      title="Délai en ms ajouté aux 0,5 s par défaut (négatif = rapproche, ou chevauche la précédente). Se règle aussi en glissant la réplique sur la bande." value="${node.delay_ms || ''}"
+      title="Délai en ms ajouté aux 0,25 s par défaut (négatif = rapproche, ou chevauche la précédente). Se règle aussi en glissant la réplique sur la bande." value="${node.delay_ms || ''}"
       oninput="${saveFn}('${seqId}','${node.id}','delay_ms',+this.value)">
     ${sel('scope', [['speaker','Sa ligne'],['all','Toutes les lignes']], node.scope || 'speaker')}
     ${sel('style', RY_STYLES.map(s => [s, s]), node.style || 'normal')}
@@ -4819,7 +4821,7 @@ function renderDlgRythmo(seqId) {
       <span class="ry-label">Largeur du texte</span>
       <input type="range" min="80" max="500" step="10" value="${_ry.pps}" title="Pixels par seconde : étire ou resserre le texte"
         oninput="_ry.pps=+this.value;_ryBuildBand()">
-      <span class="ry-label" style="margin-left:auto">Espace = lire / pause</span>
+      <span class="ry-label" style="margin-left:auto">Espace = lire / pause · molette ou glisser la bande = se déplacer · glisser une réplique = la décaler</span>
     </div>
     <div class="dlg-graph-toolbar">
       <span class="ry-label">Déclencheur</span>
@@ -4837,6 +4839,39 @@ function renderDlgRythmo(seqId) {
   </div>`;
   _ryBuildBand();
   _ryBuildCueTable();
+  _ryEnableScrub(document.getElementById('ry-band'));
+}
+
+// Se déplacer dans la séquence sans la lire : molette, ou glisser le fond de la bande (pas une réplique).
+function _ryEnableScrub(band) {
+  if (!band) return;
+  const seek = t => {
+    const max = (_ry.timeline?.total_ms || 0) + 1000;
+    _ry.t = Math.min(max, Math.max(-RY_LEAD_MS, t));
+    _ryDraw();
+  };
+  band.addEventListener('wheel', e => {
+    e.preventDefault();
+    _ryStop();
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    seek(_ry.t + delta / _ry.pps * 1000);
+  }, { passive: false });
+  band.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('.ry-cue')) return; // une réplique se déplace, elle (voir _ryDragStart)
+    e.preventDefault();
+    _ryStop();
+    band.setPointerCapture(e.pointerId);
+    band.classList.add('scrubbing');
+    const x0 = e.clientX, t0 = _ry.t;
+    const move = ev => seek(t0 - (ev.clientX - x0) / _ry.pps * 1000);
+    const up = () => {
+      band.removeEventListener('pointermove', move);
+      band.removeEventListener('pointerup', up);
+      band.classList.remove('scrubbing');
+    };
+    band.addEventListener('pointermove', move);
+    band.addEventListener('pointerup', up);
+  });
 }
 
 // Choix de l'action de la scène qui lance la séquence (+ création rapide).
