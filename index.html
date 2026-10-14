@@ -709,6 +709,9 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .ry-cues { flex:1; overflow:auto; }
 .ry-cues td, .ry-cues th { padding:6px 10px; font-size:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
 .ry-node-fields { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.scene-action-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+.scene-action-row .edit-input { flex:1; min-width:0; }
+.scene-action-uses { font-size:11px; color:var(--text3); white-space:nowrap; }
 .dlg-node-card.type-instruction { border-style:dashed; }
 .dlg-node-card.type-action { border-color:var(--warning); }
 
@@ -1504,7 +1507,8 @@ function openScenePanel(id) {
         }).join('')}
         ${(scene.dialogue_sequences||[]).length===0 ? '<span style="font-size:11px;color:var(--text3)">Aucune séquence</span>' : ''}
       </div>
-    </div>`;
+    </div>
+    ${_sceneActionsHtml(scene)}`;
 
   document.getElementById('scene-panel').classList.add('open');
   requestAnimationFrame(() => setupAutoSave('scene-panel', saveScene));
@@ -4646,7 +4650,8 @@ function saveNodeField(seqId, nodeId, field, value) {
 
 const RY_NODE_TYPES = ['dialogue','instruction','action','event','entry','exit'];
 const RY_STYLES     = ['normal','cri','chuchote','chante','pense'];
-const RY_TRIGGERS   = [['manual','Manuel (code)'],['scene_start','Début de scène'],['channel','Interact channel'],['checklist','Checklist validée']];
+const RY_TRIGGERS   = [['manual','Manuel (test / code)'],['scene_start','Début de la scène'],['action','Action de la scène']];
+const RY_REPEAT     = [['once','Une seule fois'],['always','À chaque fois'],['once_per_player','Une fois par joueur'],['once_per_life','Une fois par vie (rejouée après une mort de groupe)']];
 const RY_GAMEPLAY   = [['continue','Le jeu continue'],['slow','Ralenti'],['freeze','Figé']];
 const RY_LEAD_MS    = 1500; // temps d'avance avant la première réplique
 const RY_GAP_MS     = 50;   // silence par défaut entre deux répliques qui se suivent
@@ -4814,9 +4819,11 @@ function renderDlgRythmo(seqId) {
     </div>
     <div class="dlg-graph-toolbar">
       <span class="ry-label">Déclencheur</span>
-      <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','trigger.type',this.value)">${opt(RY_TRIGGERS, trig.type)}</select>
-      <input class="edit-input" style="width:200px;font-size:12px;padding:4px 8px" placeholder="clé (ex : vase_casse)" value="${esc(trig.key || '')}"
-        oninput="_rySaveSeq('${seqId}','trigger.key',this.value)">
+      <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','trigger.type',this.value);renderDlgRythmo('${seqId}')">${opt(RY_TRIGGERS, trig.type)}</select>
+      ${trig.type === 'action' ? _ryActionPicker(seq) : ''}
+      <div class="sep"></div>
+      <span class="ry-label">Répétition</span>
+      <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','repeat',this.value)">${opt(RY_REPEAT, seq.repeat || 'once')}</select>
       <div class="sep"></div>
       <span class="ry-label">Pendant la séquence</span>
       <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','gameplay',this.value)">${opt(RY_GAMEPLAY, seq.gameplay || 'continue')}</select>
@@ -4828,11 +4835,34 @@ function renderDlgRythmo(seqId) {
   _ryBuildCueTable();
 }
 
+// Choix de l'action de la scène qui lance la séquence (+ création rapide).
+function _ryActionPicker(seq) {
+  const scene = _findScene(seq.scene_id);
+  if (!scene) return '<span class="ry-label" style="color:var(--warning)">Lie d\'abord la séquence à une scène (✏ Séquence)</span>';
+  const actions = scene.actions || [];
+  const cur = seq.trigger?.action_id || '';
+  return `<select class="edit-select" style="font-size:12px;padding:4px 8px;max-width:240px" onchange="_rySaveSeq('${seq.id}','trigger.action_id',this.value)">
+      <option value="" ${cur ? '' : 'selected'}>— Choisir une action —</option>
+      ${actions.map(a => `<option value="${a.id}" ${a.id === cur ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
+    </select>
+    <button class="btn-ghost btn-sm" onclick="_ryNewAction('${seq.id}')">+ Nouvelle action</button>`;
+}
+
+function _ryNewAction(seqId) {
+  const seq = _seqById(seqId);
+  const scene = _findScene(seq?.scene_id);
+  if (!scene) return;
+  const label = prompt(`Nouvelle action pour ${scene.num} — ${scene.title} :\n(ex : Casser le vase, Lily tape Marco)`);
+  if (!label || !label.trim()) return;
+  _rySaveSeq(seqId, 'trigger.action_id', addSceneAction(scene.id, label.trim()));
+  renderDlgRythmo(seqId);
+}
+
 function _rySaveSeq(seqId, path, value) {
   const seq = _seqById(seqId);
   if (!seq) return;
   if (path.startsWith('trigger.')) {
-    if (!seq.trigger) seq.trigger = { type: 'manual', key: '' };
+    if (!seq.trigger) seq.trigger = { type: 'manual', action_id: '' };
     seq.trigger[path.slice(8)] = value;
   } else seq[path] = value;
   markModified();
@@ -4969,6 +4999,90 @@ document.addEventListener('keydown', e => {
   e.preventDefault();
   _ryToggle();
 });
+
+// ══════════════════════════════════════════════════════════════════
+// ACTIONS DE SCÈNE
+// Ce que les joueurs peuvent faire dans une scène (casser le vase, aller au point B…). Dans Unity, le level
+// design pose un composant « Action de scène » sous un InteractChannel et choisit l'action dans une liste ;
+// les séquences de dialogue (et plus tard la checklist) réagissent à ces actions. L'id ne change jamais :
+// renommer une action ne casse rien dans Unity.
+// ══════════════════════════════════════════════════════════════════
+
+function _findScene(sceneId) {
+  if (!sceneId) return null;
+  for (const film of state.data?.films || [])
+    for (const sc of film.scenes || []) if (sc.id === sceneId) return sc;
+  return null;
+}
+
+function _sequencesForAction(actionId) {
+  const out = [];
+  for (const film of state.data?.films || [])
+    for (const seq of film.dialogue_sequences || [])
+      if (seq.trigger?.type === 'action' && seq.trigger.action_id === actionId) out.push(seq);
+  return out;
+}
+
+function _sceneActionsHtml(scene) {
+  const actions = scene.actions || [];
+  const rows = actions.map(a => {
+    const seqs = _sequencesForAction(a.id);
+    return `<div class="scene-action-row">
+      <input class="edit-input" value="${esc(a.label)}" placeholder="ex : Casser le vase"
+        onchange="saveSceneAction('${scene.id}','${a.id}','label',this.value)">
+      <input class="edit-input" value="${esc(a.note || '')}" placeholder="Note pour le level design"
+        onchange="saveSceneAction('${scene.id}','${a.id}','note',this.value)">
+      <span class="scene-action-uses" title="${esc(seqs.map(q => q.label).join(', ') || 'Aucune séquence')}">💬 ${seqs.length}</span>
+      <button class="btn-ghost btn-sm" title="Supprimer" onclick="deleteSceneAction('${scene.id}','${a.id}')">✕</button>
+    </div>`;
+  }).join('');
+  return `<div class="field-group" id="scene-actions">
+    <div class="field-label" style="display:flex;align-items:center;gap:8px">
+      Actions de la scène <span class="badge badge-act">${actions.length}</span>
+      <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="addSceneAction('${scene.id}')">+ Action</button>
+    </div>
+    ${rows || '<span style="font-size:11px;color:var(--text3)">Aucune action. Une action = ce que les joueurs font dans le niveau (casser le vase…) et qui lance un dialogue.</span>'}
+  </div>`;
+}
+
+function _refreshSceneActions(sceneId) {
+  const box = document.getElementById('scene-actions');
+  const scene = _findScene(sceneId);
+  if (box && scene && state.selectedSceneId === sceneId) box.outerHTML = _sceneActionsHtml(scene);
+}
+
+// Crée une action dans la scène et renvoie son id.
+function addSceneAction(sceneId, label) {
+  const scene = _findScene(sceneId);
+  if (!scene) return '';
+  if (!scene.actions) scene.actions = [];
+  const id = 'act_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+  scene.actions.push({ id, label: label || 'Nouvelle action', note: '' });
+  markModified();
+  _refreshSceneActions(sceneId);
+  return id;
+}
+
+function saveSceneAction(sceneId, actionId, field, value) {
+  const action = (_findScene(sceneId)?.actions || []).find(a => a.id === actionId);
+  if (!action) return;
+  action[field] = value;
+  markModified();
+}
+
+function deleteSceneAction(sceneId, actionId) {
+  const scene = _findScene(sceneId);
+  if (!scene) return;
+  const seqs = _sequencesForAction(actionId);
+  const msg = seqs.length
+    ? `Cette action lance ${seqs.length} séquence(s) (${seqs.map(q => q.label).join(', ')}). Elles repasseront en déclencheur manuel. Supprimer ?`
+    : 'Supprimer cette action ?';
+  if (!confirm(msg)) return;
+  scene.actions = (scene.actions || []).filter(a => a.id !== actionId);
+  seqs.forEach(q => { q.trigger = { type: 'manual', action_id: '' }; });
+  markModified();
+  _refreshSceneActions(sceneId);
+}
 
 // ── CSV Export ────────────────────────────────────────────────────
 
