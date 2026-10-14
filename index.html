@@ -693,6 +693,9 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .ry-cue { position:absolute; display:flex; align-items:center; padding:0 4px; box-sizing:border-box; overflow:hidden; white-space:nowrap;
   color:#f2f3f7; font-size:20px; font-weight:600; border-left:3px solid var(--c); background:color-mix(in srgb,var(--c) 14%,transparent); }
 .ry-cue.on { background:color-mix(in srgb,var(--c) 32%,transparent); }
+.ry-cue { cursor:grab; touch-action:none; }
+.ry-cue.dragging { cursor:grabbing; outline:1px solid #fff; z-index:5; }
+.ry-drag-tip { position:absolute; top:4px; padding:2px 6px; border-radius:4px; background:#fff; color:#111; font-size:11px; font-weight:700; z-index:6; pointer-events:none; white-space:nowrap; }
 .ry-cue-text { display:inline-block; transform-origin:left center; }
 .ry-cue.ry-strip { font-size:13px; font-weight:500; color:#c5c8d6; }
 .ry-cue.ry-all { font-size:34px; justify-content:flex-start; z-index:2; background:color-mix(in srgb,var(--c) 26%,#101116); }
@@ -4654,10 +4657,11 @@ const RY_TRIGGERS   = [['manual','Manuel (test / code)'],['scene_start','Début 
 const RY_REPEAT     = [['once','Une seule fois'],['always','À chaque fois'],['once_per_player','Une fois par joueur'],['once_per_life','Une fois par vie (rejouée après une mort de groupe)']];
 const RY_GAMEPLAY   = [['continue','Le jeu continue'],['slow','Ralenti'],['freeze','Figé']];
 const RY_LEAD_MS    = 1500; // temps d'avance avant la première réplique
-const RY_GAP_MS     = 50;   // silence par défaut entre deux répliques qui se suivent
+const RY_GAP_MS     = 500;  // silence par défaut entre deux répliques qui se suivent
+const RY_GRID_MS    = 100;  // pas de la grille quand on déplace une réplique à la souris
 const RY_GUTTER     = 120;  // colonne des portraits à gauche de la bande
 
-let _ry = { seqId: null, players: 4, pps: 220, rate: 1, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
+let _ry = { seqId: null, players: 4, pps: 320, rate: 1, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
 
 // Comédiens dans l'ordre des joueurs : personnages "player" du film realite.
 function _ryActors() {
@@ -4771,7 +4775,7 @@ function _ryNodeFieldsHtml(seqId, node, saveFn) {
   return `<div class="ry-node-fields">
     ${sel('timing', [['after','Après la précédente'],['with','En même temps']], node.timing || 'after')}
     <input type="number" class="edit-input" style="width:74px;font-size:11px;padding:3px 6px" placeholder="délai ms"
-      title="Délai en ms (négatif = chevauche la précédente)" value="${node.delay_ms || ''}"
+      title="Délai en ms ajouté aux 0,5 s par défaut (négatif = rapproche, ou chevauche la précédente). Se règle aussi en glissant la réplique sur la bande." value="${node.delay_ms || ''}"
       oninput="${saveFn}('${seqId}','${node.id}','delay_ms',+this.value)">
     ${sel('scope', [['speaker','Sa ligne'],['all','Toutes les lignes']], node.scope || 'speaker')}
     ${sel('style', RY_STYLES.map(s => [s, s]), node.style || 'normal')}
@@ -4902,12 +4906,53 @@ function _ryBuildBand() {
     <div class="ry-rec" id="ry-rec">● REC</div>`;
 
   // Le texte est étiré sur la durée de la réplique : on lit à la vitesse de la barre.
+  band.querySelectorAll('.ry-cue').forEach(el => el.addEventListener('pointerdown', _ryDragStart));
   band.querySelectorAll('.ry-cue').forEach(el => {
     const span = el.firstElementChild;
     const natural = span.offsetWidth, avail = el.clientWidth - 8;
     if (natural > 0 && avail > 0) span.style.transform = `scaleX(${Math.min(3, Math.max(0.35, avail / natural))})`;
   });
   _ryDraw();
+}
+
+// Glisser une réplique vers la gauche / la droite règle son délai (grille de RY_GRID_MS) ; les suivantes suivent.
+function _ryDragStart(e) {
+  const el = e.currentTarget;
+  const index = +el.dataset.i;
+  const cue = _ry.timeline?.cues[index];
+  if (!cue || _ry.playing || e.button !== 0) return;
+  e.preventDefault();
+  el.setPointerCapture(e.pointerId);
+
+  const band = document.getElementById('ry-band');
+  const x0 = e.clientX, left0 = parseFloat(el.style.left), delay0 = cue.node.delay_ms || 0;
+  // Fin de la réplique précédente : sert à afficher l'écart pendant le déplacement.
+  const prevEnd = Math.max(0, ..._ry.timeline.cues.slice(0, index).filter(c => c.type !== 'event').map(c => c.start + c.dur));
+  const tip = document.createElement('div');
+  tip.className = 'ry-drag-tip';
+  band.appendChild(tip);
+
+  const delayFor = dx => Math.round((delay0 + dx / _ry.pps * 1000) / RY_GRID_MS) * RY_GRID_MS;
+  const move = ev => {
+    const shift = Math.max(delayFor(ev.clientX - x0) - delay0, -cue.start); // jamais avant le début
+    el.style.left = (left0 + shift / 1000 * _ry.pps) + 'px';
+    el.classList.add('dragging');
+    const start = cue.start + shift, gap = (start - prevEnd) / 1000;
+    tip.textContent = index === 0 ? `début ${(start / 1000).toFixed(1)} s`
+      : gap >= 0 ? `écart ${gap.toFixed(1)} s` : `chevauche ${(-gap).toFixed(1)} s`;
+    tip.style.left = (el.getBoundingClientRect().left - band.getBoundingClientRect().left) + 'px';
+  };
+  const up = ev => {
+    el.removeEventListener('pointermove', move);
+    el.removeEventListener('pointerup', up);
+    tip.remove();
+    const delay = delayFor(ev.clientX - x0);
+    if (delay !== delay0) saveNodeField(_ry.seqId, cue.node.id, 'delay_ms', delay);
+    _ryBuildBand();
+    _ryBuildCueTable();
+  };
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', up);
 }
 
 function _ryBuildCueTable() {
