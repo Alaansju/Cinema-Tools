@@ -721,6 +721,21 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .scene-action-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
 .scene-action-row .edit-input { flex:1; min-width:0; }
 .scene-action-uses { font-size:11px; color:var(--text3); white-space:nowrap; }
+.cl-required { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); margin-bottom:8px; }
+.cl-box { border:1px solid var(--border); border-radius:var(--radius); padding:8px; margin-bottom:8px; background:var(--bg3); }
+.cl-head { display:flex; align-items:center; gap:6px; }
+.cl-head .edit-input { flex:1; min-width:0; font-weight:600; }
+.cl-num { width:22px; height:22px; border-radius:50%; background:var(--accent); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.cl-opts { display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--text2); margin:6px 0 8px 28px; }
+.cl-opts label { display:flex; align-items:center; gap:4px; cursor:pointer; }
+.cl-item { display:flex; align-items:flex-start; gap:6px; margin:0 0 6px 6px; }
+.cl-item-mark { width:22px; font-size:12px; color:var(--text3); padding-top:6px; text-align:right; flex-shrink:0; }
+.cl-item-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.cl-item-actions { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+.cl-item-actions .cl-add { width:auto; font-size:11px; padding:2px 6px; }
+.cl-x { margin-left:4px; cursor:pointer; opacity:.6; }
+.cl-x:hover { opacity:1; }
+.cl-warn { font-size:10px; color:var(--warning); }
 .dlg-node-card.type-instruction { border-style:dashed; }
 .dlg-node-card.type-action { border-color:var(--warning); }
 
@@ -1517,7 +1532,8 @@ function openScenePanel(id) {
         ${(scene.dialogue_sequences||[]).length===0 ? '<span style="font-size:11px;color:var(--text3)">Aucune séquence</span>' : ''}
       </div>
     </div>
-    ${_sceneActionsHtml(scene)}`;
+    ${_sceneActionsHtml(scene)}
+    ${_sceneChecklistsHtml(scene)}`;
 
   document.getElementById('scene-panel').classList.add('open');
   requestAnimationFrame(() => setupAutoSave('scene-panel', saveScene));
@@ -4659,7 +4675,8 @@ function saveNodeField(seqId, nodeId, field, value) {
 
 const RY_NODE_TYPES = ['dialogue','instruction','action','event','entry','exit'];
 const RY_STYLES     = ['normal','cri','chuchote','chante','pense'];
-const RY_TRIGGERS   = [['manual','Manuel (test / code)'],['scene_start','Début de la scène'],['action','Action de la scène']];
+const RY_TRIGGERS   = [['manual','Manuel (test / code)'],['scene_start','Début de la scène'],['action','Action de la scène'],
+                       ['checklist_item','Élément de checklist validé'],['checklist_done','Checklist terminée']];
 const RY_REPEAT     = [['once','Une seule fois'],['always','À chaque fois'],['once_per_player','Une fois par joueur'],['once_per_life','Une fois par vie (rejouée après une mort de groupe)']];
 const RY_GAMEPLAY   = [['continue','Le jeu continue'],['slow','Ralenti'],['freeze','Figé']];
 const RY_LEAD_MS    = 1500; // temps d'avance avant la première réplique
@@ -4830,7 +4847,7 @@ function renderDlgRythmo(seqId) {
     <div class="dlg-graph-toolbar">
       <span class="ry-label">Déclencheur</span>
       <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','trigger.type',this.value);renderDlgRythmo('${seqId}')">${opt(RY_TRIGGERS, trig.type)}</select>
-      ${trig.type === 'action' ? _ryActionPicker(seq) : ''}
+      ${trig.type === 'action' ? _ryActionPicker(seq) : trig.type === 'checklist_item' || trig.type === 'checklist_done' ? _ryChecklistPicker(seq) : ''}
       <div class="sep"></div>
       <span class="ry-label">Répétition</span>
       <select class="edit-select" style="font-size:12px;padding:4px 8px" onchange="_rySaveSeq('${seqId}','repeat',this.value)">${opt(RY_REPEAT, seq.repeat || 'once')}</select>
@@ -4889,6 +4906,25 @@ function _ryActionPicker(seq) {
       ${actions.map(a => `<option value="${a.id}" ${a.id === cur ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
     </select>
     <button class="btn-ghost btn-sm" onclick="_ryNewAction('${seq.id}')">+ Nouvelle action</button>`;
+}
+
+// Choix de l'élément (ou de la checklist entière) qui lance la séquence.
+function _ryChecklistPicker(seq) {
+  const scene = _findScene(seq.scene_id);
+  if (!scene) return '<span class="ry-label" style="color:var(--warning)">Lie d\'abord la séquence à une scène (✏ Séquence)</span>';
+  const lists = scene.checklists || [];
+  if (!lists.length) return '<span class="ry-label" style="color:var(--warning)">Aucune checklist dans cette scène (panneau de la scène → « + Checklist »)</span>';
+  const t = seq.trigger || {};
+  const opt = (id, label, cur) => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(label)}</option>`;
+  if (t.type === 'checklist_done') {
+    return `<select class="edit-select" style="font-size:12px;padding:4px 8px;max-width:260px" onchange="_rySaveSeq('${seq.id}','trigger.checklist_id',this.value)">
+      <option value="">— Choisir une checklist —</option>
+      ${lists.map((cl, i) => opt(cl.id, `${i + 1}. ${cl.label || 'Checklist'}`, t.checklist_id)).join('')}</select>`;
+  }
+  return `<select class="edit-select" style="font-size:12px;padding:4px 8px;max-width:260px" onchange="_rySaveSeq('${seq.id}','trigger.item_id',this.value)">
+    <option value="">— Choisir un élément —</option>
+    ${lists.map((cl, i) => `<optgroup label="${esc(`${i + 1}. ${cl.label || 'Checklist'}`)}">
+      ${(cl.items || []).map(it => opt(it.id, it.label || 'Élément', t.item_id)).join('')}</optgroup>`).join('')}</select>`;
 }
 
 function _ryNewAction(seqId) {
@@ -5143,6 +5179,7 @@ function _sceneActionsHtml(scene) {
       <input class="edit-input" value="${esc(a.note || '')}" placeholder="Note pour le level design"
         onchange="saveSceneAction('${scene.id}','${a.id}','note',this.value)">
       <span class="scene-action-uses" title="${esc(seqs.map(q => q.label).join(', ') || 'Aucune séquence')}">💬 ${seqs.length}</span>
+      <span class="scene-action-uses" title="Éléments de checklist validés par cette action">☑ ${_itemsUsingAction(scene, a.id).length}</span>
       <button class="btn-ghost btn-sm" title="Supprimer" onclick="deleteSceneAction('${scene.id}','${a.id}')">✕</button>
     </div>`;
   }).join('');
@@ -5170,6 +5207,7 @@ function addSceneAction(sceneId, label) {
   scene.actions.push({ id, label: label || 'Nouvelle action', note: '' });
   markModified();
   _refreshSceneActions(sceneId);
+  _refreshSceneChecklists(sceneId);
   return id;
 }
 
@@ -5178,20 +5216,223 @@ function saveSceneAction(sceneId, actionId, field, value) {
   if (!action) return;
   action[field] = value;
   markModified();
+  if (field === 'label') _refreshSceneChecklists(sceneId);
 }
 
 function deleteSceneAction(sceneId, actionId) {
   const scene = _findScene(sceneId);
   if (!scene) return;
   const seqs = _sequencesForAction(actionId);
-  const msg = seqs.length
-    ? `Cette action lance ${seqs.length} séquence(s) (${seqs.map(q => q.label).join(', ')}). Elles repasseront en déclencheur manuel. Supprimer ?`
-    : 'Supprimer cette action ?';
-  if (!confirm(msg)) return;
+  const items = _itemsUsingAction(scene, actionId);
+  const uses = [];
+  if (seqs.length) uses.push(`lance ${seqs.length} séquence(s) (${seqs.map(q => q.label).join(', ')}), qui repasseront en déclencheur manuel`);
+  if (items.length) uses.push(`valide ${items.length} élément(s) de checklist, qui ne la compteront plus`);
+  if (!confirm(uses.length ? `Cette action ${uses.join(' et ')}. Supprimer ?` : 'Supprimer cette action ?')) return;
   scene.actions = (scene.actions || []).filter(a => a.id !== actionId);
-  seqs.forEach(q => { q.trigger = { type: 'manual', action_id: '' }; });
+  seqs.forEach(q => { q.trigger = { type: 'manual' }; });
+  items.forEach(it => { it.actions = it.actions.filter(id => id !== actionId); });
   markModified();
   _refreshSceneActions(sceneId);
+  _refreshSceneChecklists(sceneId);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CHECKLISTS
+// Ce que les joueurs doivent faire pour valider la scène. Les checklists d'une scène se font l'une après
+// l'autre, jamais deux en même temps. Chaque élément a un libellé (vu par les joueurs) et une liste cachée
+// d'actions de scène : n'importe laquelle le valide. Options : éléments dans l'ordre, remise à zéro après
+// une mort de groupe ; au niveau de la scène : checklists obligatoires pour finir le niveau.
+// ══════════════════════════════════════════════════════════════════
+
+function _newId(prefix) { return prefix + '_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
+
+function _itemsUsingAction(scene, actionId) {
+  const out = [];
+  (scene.checklists || []).forEach(cl => (cl.items || []).forEach(it => { if ((it.actions || []).includes(actionId)) out.push(it); }));
+  return out;
+}
+
+function _sequencesForTrigger(field, id) {
+  const out = [];
+  for (const film of state.data?.films || [])
+    for (const seq of film.dialogue_sequences || [])
+      if (seq.trigger && seq.trigger[field] === id) out.push(seq);
+  return out;
+}
+
+function _checklist(sceneId, checklistId) {
+  return (_findScene(sceneId)?.checklists || []).find(cl => cl.id === checklistId);
+}
+
+function _sceneChecklistsHtml(scene) {
+  const sid = scene.id;
+  const lists = scene.checklists || [];
+  const actions = scene.actions || [];
+  const actionLabel = id => actions.find(a => a.id === id)?.label || '⚠ action supprimée';
+  const arrows = (fn, args, i, n) => `
+    <button class="btn-ghost btn-sm" title="Monter" ${i === 0 ? 'disabled' : ''} onclick="${fn}(${args},-1)">↑</button>
+    <button class="btn-ghost btn-sm" title="Descendre" ${i === n - 1 ? 'disabled' : ''} onclick="${fn}(${args},1)">↓</button>`;
+
+  const listHtml = lists.map((cl, ci) => {
+    const items = cl.items || [];
+    const itemsHtml = items.map((it, ii) => {
+      const ids = it.actions || [];
+      return `<div class="cl-item">
+        <span class="cl-item-mark">${cl.ordered ? (ii + 1) + '.' : '☐'}</span>
+        <div class="cl-item-main">
+          <input class="edit-input" value="${esc(it.label || '')}" placeholder="Ce que voient les joueurs (ex : Casser le pot de fleur)"
+            onchange="saveChecklistItem('${sid}','${cl.id}','${it.id}','label',this.value)">
+          <div class="cl-item-actions">
+            ${ids.map(aid => `<span class="tag">${esc(actionLabel(aid))}<span class="cl-x" title="Retirer" onclick="removeItemAction('${sid}','${cl.id}','${it.id}','${aid}')">✕</span></span>`).join('')}
+            <select class="edit-select cl-add" onchange="addItemAction('${sid}','${cl.id}','${it.id}',this.value)">
+              <option value="">${ids.length ? '+ autre action' : '+ action qui valide l\'élément'}</option>
+              ${actions.filter(a => !ids.includes(a.id)).map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('')}
+              <option value="__new">＋ Nouvelle action…</option>
+            </select>
+            ${ids.length ? '' : '<span class="cl-warn">aucune action : l\'élément ne pourra pas être validé</span>'}
+          </div>
+        </div>
+        ${arrows('moveChecklistItem', `'${sid}','${cl.id}','${it.id}'`, ii, items.length)}
+        <button class="btn-ghost btn-sm" title="Supprimer l'élément" onclick="deleteChecklistItem('${sid}','${cl.id}','${it.id}')">✕</button>
+      </div>`;
+    }).join('');
+    return `<div class="cl-box">
+      <div class="cl-head">
+        <span class="cl-num">${ci + 1}</span>
+        <input class="edit-input" value="${esc(cl.label || '')}" placeholder="Titre de la checklist"
+          onchange="saveChecklist('${sid}','${cl.id}','label',this.value)">
+        ${arrows('moveChecklist', `'${sid}','${cl.id}'`, ci, lists.length)}
+        <button class="btn-ghost btn-sm" title="Supprimer la checklist" onclick="deleteChecklist('${sid}','${cl.id}')">✕</button>
+      </div>
+      <div class="cl-opts">
+        <label><input type="checkbox" ${cl.ordered ? 'checked' : ''} onchange="saveChecklist('${sid}','${cl.id}','ordered',this.checked,true)"> Dans l'ordre</label>
+        <label><input type="checkbox" ${cl.reset_on_death !== false ? 'checked' : ''} onchange="saveChecklist('${sid}','${cl.id}','reset_on_death',this.checked)"> Remise à zéro après une mort de groupe</label>
+      </div>
+      ${itemsHtml}
+      <button class="btn-ghost btn-sm" onclick="addChecklistItem('${sid}','${cl.id}')">+ Élément</button>
+    </div>`;
+  }).join('');
+
+  return `<div class="field-group" id="scene-checklists">
+    <div class="field-label" style="display:flex;align-items:center;gap:8px">
+      Checklists <span class="badge badge-act">${lists.length}</span>
+      <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="addChecklist('${sid}')">+ Checklist</button>
+    </div>
+    <label class="cl-required"><input type="checkbox" ${scene.checklist_required !== false ? 'checked' : ''}
+      onchange="saveSceneChecklistRequired('${sid}',this.checked)"> Checklists obligatoires pour finir le niveau</label>
+    ${listHtml || '<span style="font-size:11px;color:var(--text3)">Aucune checklist. Elles se font l\'une après l\'autre ; chaque élément est validé par une des actions de la scène.</span>'}
+  </div>`;
+}
+
+function _refreshSceneChecklists(sceneId) {
+  const box = document.getElementById('scene-checklists');
+  const scene = _findScene(sceneId);
+  if (box && scene && state.selectedSceneId === sceneId) box.outerHTML = _sceneChecklistsHtml(scene);
+}
+
+function _checklistChanged(sceneId) {
+  markModified();
+  _refreshSceneChecklists(sceneId);
+  _refreshSceneActions(sceneId);
+}
+
+function saveSceneChecklistRequired(sceneId, value) {
+  const scene = _findScene(sceneId);
+  if (!scene) return;
+  scene.checklist_required = value;
+  markModified();
+}
+
+function addChecklist(sceneId) {
+  const scene = _findScene(sceneId);
+  if (!scene) return;
+  if (!scene.checklists) scene.checklists = [];
+  scene.checklists.push({ id: _newId('cl'), label: '', ordered: false, reset_on_death: true,
+                          items: [{ id: _newId('item'), label: '', actions: [] }] });
+  _checklistChanged(sceneId);
+}
+
+function saveChecklist(sceneId, checklistId, field, value, rerender) {
+  const cl = _checklist(sceneId, checklistId);
+  if (!cl) return;
+  cl[field] = value;
+  markModified();
+  if (rerender) _refreshSceneChecklists(sceneId);
+}
+
+function moveChecklist(sceneId, checklistId, dir) {
+  const lists = _findScene(sceneId)?.checklists || [];
+  const i = lists.findIndex(cl => cl.id === checklistId), j = i + dir;
+  if (i < 0 || j < 0 || j >= lists.length) return;
+  [lists[i], lists[j]] = [lists[j], lists[i]];
+  _checklistChanged(sceneId);
+}
+
+function deleteChecklist(sceneId, checklistId) {
+  const scene = _findScene(sceneId);
+  const cl = _checklist(sceneId, checklistId);
+  if (!cl) return;
+  const seqs = [..._sequencesForTrigger('checklist_id', checklistId),
+                ...(cl.items || []).flatMap(it => _sequencesForTrigger('item_id', it.id))];
+  const msg = seqs.length ? `Cette checklist lance ${seqs.length} séquence(s), qui repasseront en déclencheur manuel. Supprimer ?`
+                          : 'Supprimer cette checklist et ses éléments ?';
+  if (!confirm(msg)) return;
+  scene.checklists = scene.checklists.filter(c => c.id !== checklistId);
+  seqs.forEach(q => { q.trigger = { type: 'manual' }; });
+  _checklistChanged(sceneId);
+}
+
+function addChecklistItem(sceneId, checklistId) {
+  const cl = _checklist(sceneId, checklistId);
+  if (!cl) return;
+  if (!cl.items) cl.items = [];
+  cl.items.push({ id: _newId('item'), label: '', actions: [] });
+  _checklistChanged(sceneId);
+}
+
+function saveChecklistItem(sceneId, checklistId, itemId, field, value) {
+  const it = (_checklist(sceneId, checklistId)?.items || []).find(x => x.id === itemId);
+  if (!it) return;
+  it[field] = value;
+  markModified();
+}
+
+function moveChecklistItem(sceneId, checklistId, itemId, dir) {
+  const items = _checklist(sceneId, checklistId)?.items || [];
+  const i = items.findIndex(x => x.id === itemId), j = i + dir;
+  if (i < 0 || j < 0 || j >= items.length) return;
+  [items[i], items[j]] = [items[j], items[i]];
+  _checklistChanged(sceneId);
+}
+
+function deleteChecklistItem(sceneId, checklistId, itemId) {
+  const cl = _checklist(sceneId, checklistId);
+  if (!cl) return;
+  const seqs = _sequencesForTrigger('item_id', itemId);
+  if (seqs.length && !confirm(`Cet élément lance ${seqs.length} séquence(s), qui repasseront en déclencheur manuel. Supprimer ?`)) return;
+  cl.items = cl.items.filter(x => x.id !== itemId);
+  seqs.forEach(q => { q.trigger = { type: 'manual' }; });
+  _checklistChanged(sceneId);
+}
+
+function addItemAction(sceneId, checklistId, itemId, actionId) {
+  const it = (_checklist(sceneId, checklistId)?.items || []).find(x => x.id === itemId);
+  if (!it || !actionId) return;
+  if (actionId === '__new') {
+    const label = prompt('Nouvelle action de scène :\n(ex : Casser le pot de fleur)');
+    if (!label || !label.trim()) { _refreshSceneChecklists(sceneId); return; }
+    actionId = addSceneAction(sceneId, label.trim());
+  }
+  if (!it.actions) it.actions = [];
+  if (!it.actions.includes(actionId)) it.actions.push(actionId);
+  _checklistChanged(sceneId);
+}
+
+function removeItemAction(sceneId, checklistId, itemId, actionId) {
+  const it = (_checklist(sceneId, checklistId)?.items || []).find(x => x.id === itemId);
+  if (!it) return;
+  it.actions = (it.actions || []).filter(id => id !== actionId);
+  _checklistChanged(sceneId);
 }
 
 // ── CSV Export ────────────────────────────────────────────────────
