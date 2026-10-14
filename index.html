@@ -697,6 +697,10 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .ry-band { cursor:ew-resize; touch-action:none; user-select:none; }
 .ry-band.scrubbing { cursor:grabbing; }
 .ry-cue.dragging { cursor:grabbing; outline:1px solid #fff; z-index:5; }
+.ry-handle { position:absolute; top:0; bottom:0; width:8px; cursor:ew-resize; z-index:2; }
+.ry-handle-l { left:0; }
+.ry-handle-r { right:0; }
+.ry-handle:hover, .ry-cue.dragging .ry-handle { background:rgba(255,255,255,.35); }
 .ry-drag-tip { position:absolute; top:4px; padding:2px 6px; border-radius:4px; background:#fff; color:#111; font-size:11px; font-weight:700; z-index:6; pointer-events:none; white-space:nowrap; }
 .ry-cue-text { display:inline-block; transform-origin:left center; }
 .ry-cue.ry-strip { font-size:13px; font-weight:500; color:#c5c8d6; }
@@ -4663,7 +4667,7 @@ const RY_GAP_MS     = 250;  // silence par défaut entre deux répliques qui se 
 const RY_GRID_MS    = 100;  // pas de la grille quand on déplace une réplique à la souris
 const RY_GUTTER     = 120;  // colonne des portraits à gauche de la bande
 
-let _ry = { seqId: null, players: 4, pps: 320, rate: 1, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
+let _ry = { seqId: null, players: 4, pps: 450, rate: 1, t: -RY_LEAD_MS, playing: false, raf: 0, last: 0, timeline: null };
 
 // Comédiens dans l'ordre des joueurs : personnages "player" du film realite.
 function _ryActors() {
@@ -4819,7 +4823,7 @@ function renderDlgRythmo(seqId) {
       <input type="range" min="0.5" max="2" step="0.1" value="${_ry.rate}" title="Vitesse de lecture : le temps passe plus ou moins vite, la largeur des lettres ne change pas"
         oninput="_ry.rate=+this.value;document.getElementById('ry-rate-label').textContent='Vitesse ×'+_ry.rate.toFixed(1)">
       <span class="ry-label">Largeur du texte</span>
-      <input type="range" min="80" max="500" step="10" value="${_ry.pps}" title="Pixels par seconde : étire ou resserre le texte"
+      <input type="range" min="100" max="900" step="10" value="${_ry.pps}" title="Pixels par seconde : étire ou resserre le texte"
         oninput="_ry.pps=+this.value;_ryBuildBand()">
       <span class="ry-label" style="margin-left:auto">Espace = lire / pause · molette ou glisser la bande = se déplacer · glisser une réplique = la décaler</span>
     </div>
@@ -4932,7 +4936,9 @@ function _ryBuildBand() {
     const prefix = c.type === 'action' ? '⚡ ' : c.type === 'instruction' ? '➜ ' : (strip && c.name ? c.name + ' : ' : '');
     return `<div class="ry-cue ry-${c.type} ry-style-${esc(c.node.style || 'normal')}${c.all ? ' ry-all' : ''}${strip ? ' ry-strip' : ''}" data-i="${i}"
         style="left:${px(c.start)}px;width:${px(c.dur)}px;top:${top}px;height:${h}px;--c:${esc(c.color)}">
-        <span class="ry-cue-text">${esc(prefix + (c.node.text_fr || '…'))}</span></div>`;
+        <span class="ry-cue-text">${esc(prefix + (c.node.text_fr || '…'))}</span>
+        <span class="ry-handle ry-handle-l" title="Étirer : change le début et la durée"></span>
+        <span class="ry-handle ry-handle-r" title="Étirer : change la durée"></span></div>`;
   }).join('');
 
   band.innerHTML = `${laneRows}
@@ -4950,7 +4956,10 @@ function _ryBuildBand() {
   _ryDraw();
 }
 
-// Glisser une réplique vers la gauche / la droite règle son délai (grille de RY_GRID_MS) ; les suivantes suivent.
+// Glisser une réplique la décale (son délai) ; tirer un de ses bords l'étire ou l'écrase (sa durée).
+// Tout s'aligne sur une grille de RY_GRID_MS ; les répliques suivantes se décalent avec elle.
+const RY_MIN_DUR_MS = 200;
+
 function _ryDragStart(e) {
   const el = e.currentTarget;
   const index = +el.dataset.i;
@@ -4959,30 +4968,51 @@ function _ryDragStart(e) {
   e.preventDefault();
   el.setPointerCapture(e.pointerId);
 
+  const mode = e.target.classList.contains('ry-handle-l') ? 'left'
+             : e.target.classList.contains('ry-handle-r') ? 'right' : 'move';
   const band = document.getElementById('ry-band');
-  const x0 = e.clientX, left0 = parseFloat(el.style.left), delay0 = cue.node.delay_ms || 0;
+  const x0 = e.clientX, left0 = parseFloat(el.style.left), width0 = parseFloat(el.style.width);
+  const delay0 = cue.node.delay_ms || 0, dur0 = cue.dur;
   // Fin de la réplique précédente : sert à afficher l'écart pendant le déplacement.
   const prevEnd = Math.max(0, ..._ry.timeline.cues.slice(0, index).filter(c => c.type !== 'event').map(c => c.start + c.dur));
   const tip = document.createElement('div');
   tip.className = 'ry-drag-tip';
   band.appendChild(tip);
 
-  const delayFor = dx => Math.round((delay0 + dx / _ry.pps * 1000) / RY_GRID_MS) * RY_GRID_MS;
+  const snap = ms => Math.round(ms / RY_GRID_MS) * RY_GRID_MS;
+  const toMs = dx => dx / _ry.pps * 1000;
+  const toPx = ms => ms / 1000 * _ry.pps;
+  let result = null; // { delay, dur } à enregistrer au relâchement
+
   const move = ev => {
-    const shift = Math.max(delayFor(ev.clientX - x0) - delay0, -cue.start); // jamais avant le début
-    el.style.left = (left0 + shift / 1000 * _ry.pps) + 'px';
+    const dx = toMs(ev.clientX - x0);
+    let shift = 0, dur = dur0;
+    if (mode === 'right') {
+      dur = Math.max(RY_MIN_DUR_MS, snap(dur0 + dx));
+    } else {
+      // Décalage du début : jamais avant 0 ; à gauche, la fin reste en place et la durée garde un minimum.
+      shift = Math.max(snap(delay0 + dx) - delay0, -cue.start);
+      if (mode === 'left') { shift = Math.min(shift, dur0 - RY_MIN_DUR_MS); dur = dur0 - shift; }
+    }
+    result = { delay: delay0 + shift, dur };
+    el.style.left = (left0 + toPx(shift)) + 'px';
+    el.style.width = Math.max(1, width0 + toPx(dur - dur0)) + 'px';
     el.classList.add('dragging');
+
     const start = cue.start + shift, gap = (start - prevEnd) / 1000;
-    tip.textContent = index === 0 ? `début ${(start / 1000).toFixed(1)} s`
+    const where = index === 0 ? `début ${(start / 1000).toFixed(1)} s`
       : gap >= 0 ? `écart ${gap.toFixed(1)} s` : `chevauche ${(-gap).toFixed(1)} s`;
+    tip.textContent = mode === 'move' ? where : `durée ${(dur / 1000).toFixed(1)} s` + (mode === 'left' ? ` · ${where}` : '');
     tip.style.left = (el.getBoundingClientRect().left - band.getBoundingClientRect().left) + 'px';
   };
-  const up = ev => {
+  const up = () => {
     el.removeEventListener('pointermove', move);
     el.removeEventListener('pointerup', up);
     tip.remove();
-    const delay = delayFor(ev.clientX - x0);
-    if (delay !== delay0) saveNodeField(_ry.seqId, cue.node.id, 'delay_ms', delay);
+    if (result) {
+      if (result.delay !== delay0) saveNodeField(_ry.seqId, cue.node.id, 'delay_ms', result.delay);
+      if (result.dur !== dur0) saveNodeField(_ry.seqId, cue.node.id, 'rhythm_duration_ms', result.dur);
+    }
     _ryBuildBand();
     _ryBuildCueTable();
   };
