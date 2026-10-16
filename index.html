@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Scenemates — Story Editor</title>
@@ -828,6 +829,50 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 }
 .seq-create-modal h3 { font-size:14px; font-weight:700; }
 .seq-create-modal .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+/* ── Script (scénario d'une scène) ─────────────────────────────── */
+.sc-layout { display:flex; flex:1; overflow:hidden; }
+.sc-side { width:420px; flex-shrink:0; display:flex; flex-direction:column; border-right:1px solid var(--border); background:var(--bg2); }
+.sc-side-head { display:flex; gap:6px; padding:10px; border-bottom:1px solid var(--border); }
+.sc-side-head .edit-select { flex:1; min-width:0; }
+.sc-heading-fields { display:flex; gap:6px; padding:10px; border-bottom:1px solid var(--border); }
+.sc-heading-fields .edit-select { width:auto; }
+.sc-heading-fields .edit-input { flex:1; min-width:0; }
+.sc-blocks { flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+.sc-block { border:1px solid var(--border); border-radius:var(--radius); padding:8px; background:var(--bg3); display:flex; flex-direction:column; gap:6px; }
+.sc-block-head { display:flex; align-items:center; gap:4px; }
+.sc-block-type { flex:1; font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.04em; }
+.sc-block-checklist { border-left:3px solid #ffd400; }
+.sc-block-note { border-left:3px solid #e05c5c; }
+.sc-block-sequence { border-left:3px solid var(--accent); }
+.sc-empty { font-size:12px; color:var(--text3); padding:10px; }
+.sc-add { display:flex; flex-wrap:wrap; gap:4px; padding:10px; border-top:1px solid var(--border); }
+.sc-help { font-size:11px; color:var(--text3); padding:0 10px 10px; }
+.sc-preview { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+.sc-toolbar { display:flex; align-items:center; gap:6px; padding:8px 12px; border-bottom:1px solid var(--border); background:var(--bg2); }
+.sc-toolbar .filter-chip.active { background:var(--accent); }
+.sc-desk { flex:1; overflow:auto; background:#3b3a36; padding:28px; }
+.sc-page { position:relative; width:640px; min-height:900px; margin:0 auto; padding:56px 64px 64px 72px; background:#fbf8f0; color:#1b1b1b;
+  box-shadow:0 8px 30px rgba(0,0,0,.45); font-family:'Courier Prime','Courier New',monospace; font-size:15px; line-height:1.45; }
+.sc-top { display:flex; justify-content:space-between; font-size:11px; letter-spacing:.08em; color:#777; margin-bottom:26px; text-transform:uppercase; }
+.sc-heading { font-weight:700; text-transform:uppercase; margin-bottom:6px; }
+.sc-cast { font-size:12px; color:#555; margin-bottom:22px; }
+.sc-actor { color:#999; text-transform:none; }
+.sc-action { margin:0 0 14px; }
+.sc-physical { font-weight:700; }
+.sc-dlg { margin:0 90px 14px 110px; padding:2px 6px; border-radius:3px; }
+.sc-dlg.sc-pov { background:color-mix(in srgb, var(--pov) 28%, transparent); }
+.sc-char { text-align:center; font-weight:700; letter-spacing:.04em; }
+.sc-paren { text-align:center; font-style:italic; color:#444; font-size:14px; }
+.sc-line { text-align:left; }
+.sc-stabilo { background:linear-gradient(transparent 12%, rgba(255,226,0,.75) 12%, rgba(255,226,0,.75) 88%, transparent 88%); color:inherit; padding:0 2px; }
+.sc-note { font-family:'Caveat','Comic Sans MS',cursive; font-size:21px; color:#c0392b; margin:-4px 0 14px 300px; transform:rotate(-2deg); }
+.sc-transition { text-align:right; font-weight:700; margin:22px 0 0; }
+@media print {
+  body * { visibility:hidden !important; }
+  .sc-page, .sc-page * { visibility:visible !important; }
+  .sc-page { position:absolute; left:0; top:0; margin:0; box-shadow:none; }
+}
 </style>
 </head>
 <body>
@@ -856,6 +901,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   <button class="tab-btn" data-tab="graph">Graphe</button>
   <button class="tab-btn" data-tab="characters">Personnages</button>
   <button class="tab-btn" data-tab="dialogues">💬 Dialogues</button>
+  <button class="tab-btn" data-tab="script">📜 Script</button>
   <button class="tab-btn" data-tab="notes">📝 Notes</button>
 </nav>
 
@@ -1074,6 +1120,8 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
   </div>
 
   <!-- ── TAB NOTES ──────────────────────────────────────────────── -->
+  <div class="tab-content" id="tab-script"></div>
+
   <div class="tab-content" id="tab-notes">
     <div class="notes-layout">
       <div class="notes-toolbar">
@@ -1353,6 +1401,7 @@ function renderAll() {
   if (state.activeTab === 'graph')     renderGraph();
   if (state.activeTab === 'notes')     renderNotes();
   if (state.activeTab === 'dialogues') renderDialogues();
+  if (state.activeTab === 'script')    renderScript();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1368,6 +1417,7 @@ function switchTab(tab) {
   if (tab === 'scenario')  renderTimeline();
   if (tab === 'notes')     renderNotes();
   if (tab === 'dialogues') renderDialogues();
+  if (tab === 'script')    renderScript();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -5433,6 +5483,268 @@ function removeItemAction(sceneId, checklistId, itemId, actionId) {
   if (!it) return;
   it.actions = (it.actions || []).filter(id => id !== actionId);
   _checklistChanged(sceneId);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SCRIPT — une page de scénario par scène (= un niveau)
+// Le script est une suite de blocs composée à la main, dans l'ordre où on veut raconter la scène :
+// didascalie (texte libre, ==texte== = surligné au stabilo), élément de checklist (surligné), séquence de
+// dialogue (rendue automatiquement depuis le graphe, version selon le nombre de joueurs), note du
+// réalisateur (dans la marge), transition. En-tête, personnages et numéro de prise sont automatiques.
+// Données : scene.script = { place, location, time, blocks: [{ id, type, ... }] }.
+// ══════════════════════════════════════════════════════════════════
+
+const SC_BLOCKS = {
+  text:       { label: 'Didascalie',            icon: '≡' },
+  sequence:   { label: 'Dialogue',              icon: '💬' },
+  checklist:  { label: 'Élément de checklist',  icon: '☑' },
+  note:       { label: 'Note du réalisateur',   icon: '✎' },
+  transition: { label: 'Transition',            icon: '➜' },
+};
+const SC_PLACES = ['INT.', 'EXT.', 'INT./EXT.'];
+const SC_TIMES = ['JOUR', 'NUIT', 'AUBE', 'CRÉPUSCULE', 'PLUS TARD', 'CONTINU'];
+const SC_STYLE_PAREN = { cri: 'en criant', chuchote: 'en chuchotant', chante: 'en chantant', pense: 'pensée' };
+
+let _sc = { sceneId: null, players: 4, pov: '', take: 1 };
+
+function _scScenes() { return currentFilm()?.scenes || []; }
+function _scScene() { return _findScene(_sc.sceneId); }
+function _scScript(scene) {
+  if (!scene.script) scene.script = { place: 'INT.', location: '', time: 'JOUR', blocks: [] };
+  if (!scene.script.blocks) scene.script.blocks = [];
+  return scene.script;
+}
+
+function renderScript() {
+  const root = document.getElementById('tab-script');
+  if (!root) return;
+  const scenes = _scScenes();
+  if (!_sc.sceneId || !scenes.some(s => s.id === _sc.sceneId)) _sc.sceneId = scenes[0]?.id || null;
+  const scene = _scScene();
+  if (!scene) { root.innerHTML = '<div class="empty-state" style="flex:1"><p>Aucune scène dans ce film</p></div>'; return; }
+  const script = _scScript(scene);
+  const opt = (list, cur) => list.map(v => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  const roleChars = _dlgChars();
+
+  root.innerHTML = `<div class="sc-layout">
+    <div class="sc-side">
+      <div class="sc-side-head">
+        <select class="edit-select" onchange="_sc.sceneId=this.value;renderScript()">
+          ${scenes.map(s => `<option value="${s.id}" ${s.id === scene.id ? 'selected' : ''}>${esc(s.num)} — ${esc(s.title)}</option>`).join('')}
+        </select>
+        <button class="btn-ghost btn-sm" onclick="_scGenerateDraft()" title="Remplit le script à partir de la scène : description, séquences, checklist">✨ Générer un brouillon</button>
+      </div>
+      <div class="sc-heading-fields">
+        <select class="edit-select" onchange="_scSet('place',this.value)">${opt(SC_PLACES, script.place)}</select>
+        <input class="edit-input" placeholder="Lieu (ex : ARRÊT DE BUS)" value="${esc(script.location || '')}" oninput="_scSet('location',this.value)">
+        <select class="edit-select" onchange="_scSet('time',this.value)">${opt(SC_TIMES, script.time)}</select>
+      </div>
+      <div class="sc-blocks" id="sc-blocks">${script.blocks.map((b, i) => _scBlockEditor(scene, b, i, script.blocks.length)).join('') ||
+        '<div class="sc-empty">Script vide. Ajoute des blocs ci-dessous, ou génère un brouillon depuis la scène.</div>'}</div>
+      <div class="sc-add">${Object.entries(SC_BLOCKS).map(([type, b]) =>
+        `<button class="btn-ghost btn-sm" onclick="_scAdd('${type}')">${b.icon} ${b.label}</button>`).join('')}</div>
+      <div class="sc-help">Dans une didascalie, <code>==texte==</code> surligne au stabilo.</div>
+    </div>
+    <div class="sc-preview">
+      <div class="sc-toolbar">
+        <span class="ry-label">Joueurs</span>
+        ${[2, 3, 4].map(n => `<button class="filter-chip ${n === _sc.players ? 'active' : ''}" onclick="_sc.players=${n};renderScript()">${n}</button>`).join('')}
+        <span class="ry-label" style="margin-left:10px">Point de vue</span>
+        <select class="edit-select" style="width:auto" onchange="_sc.pov=this.value;_scRenderPage()">
+          <option value="">— Aucun —</option>
+          ${roleChars.map(c => `<option value="${c.id}" ${c.id === _sc.pov ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>
+        <span class="ry-label" style="margin-left:10px">Prise</span>
+        <input type="number" min="1" class="edit-input" style="width:64px" value="${_sc.take}" oninput="_sc.take=Math.max(1,+this.value||1);_scRenderPage()">
+        <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="window.print()">🖨 Imprimer</button>
+      </div>
+      <div class="sc-desk"><div class="sc-page" id="sc-page"></div></div>
+    </div>
+  </div>`;
+  _scRenderPage();
+}
+
+// ── Édition des blocs ─────────────────────────────────────────────
+
+function _scBlockEditor(scene, b, i, n) {
+  const sid = scene.id, info = SC_BLOCKS[b.type] || { label: b.type, icon: '?' };
+  let body = '';
+  if (b.type === 'text' || b.type === 'note') {
+    body = `<textarea class="edit-textarea" rows="${b.type === 'note' ? 2 : 3}" placeholder="${b.type === 'note' ? 'Ex : Lily, plus de conviction !' : 'Ce qui se passe, au présent.'}"
+      oninput="_scBlockSet('${b.id}','text',this.value)">${esc(b.text || '')}</textarea>`;
+  } else if (b.type === 'transition') {
+    body = `<input class="edit-input" value="${esc(b.text || '')}" placeholder="COUPEZ !" oninput="_scBlockSet('${b.id}','text',this.value)">`;
+  } else if (b.type === 'sequence') {
+    const seqs = _dlgSeqs();
+    body = `<select class="edit-select" onchange="_scBlockSet('${b.id}','sequence_id',this.value,true)">
+      <option value="">— Choisir une séquence —</option>
+      ${seqs.map(q => `<option value="${q.id}" ${q.id === b.sequence_id ? 'selected' : ''}>${q.scene_id === sid ? '' : '↗ '}${esc(q.label || q.id)}</option>`).join('')}</select>`;
+  } else if (b.type === 'checklist') {
+    const lists = scene.checklists || [];
+    body = lists.length ? `<select class="edit-select" onchange="_scBlockSet('${b.id}','item_id',this.value,true)">
+      <option value="">— Choisir un élément —</option>
+      ${lists.map((cl, ci) => `<optgroup label="${esc(`${ci + 1}. ${cl.label || 'Checklist'}`)}">${(cl.items || []).map(it =>
+        `<option value="${it.id}" ${it.id === b.item_id ? 'selected' : ''}>${esc(it.label || 'Élément')}</option>`).join('')}</optgroup>`).join('')}</select>`
+      : '<span class="cl-warn">Aucune checklist dans cette scène (panneau de la scène → « + Checklist »)</span>';
+  }
+  return `<div class="sc-block sc-block-${b.type}">
+    <div class="sc-block-head">
+      <span class="sc-block-type">${info.icon} ${info.label}</span>
+      <button class="btn-ghost btn-sm" ${i === 0 ? 'disabled' : ''} onclick="_scMove('${b.id}',-1)">↑</button>
+      <button class="btn-ghost btn-sm" ${i === n - 1 ? 'disabled' : ''} onclick="_scMove('${b.id}',1)">↓</button>
+      <button class="btn-ghost btn-sm" onclick="_scDelete('${b.id}')">✕</button>
+    </div>${body}</div>`;
+}
+
+function _scSet(field, value) {
+  const scene = _scScene();
+  if (!scene) return;
+  _scScript(scene)[field] = value;
+  markModified();
+  _scRenderPage();
+}
+
+function _scBlock(id) { return (_scScript(_scScene()).blocks || []).find(b => b.id === id); }
+
+function _scBlockSet(id, field, value, rerender) {
+  const b = _scBlock(id);
+  if (!b) return;
+  b[field] = value;
+  markModified();
+  if (rerender) renderScript(); else _scRenderPage();
+}
+
+function _scNewBlock(type, extra) {
+  const id = _newId('sb');
+  const b = { id, type, ...extra };
+  // Textes écrits à la main : clé de traduction, comme les répliques.
+  if (type === 'text' || type === 'note' || type === 'transition') b.locale_key = `script_${id}`;
+  if (type === 'transition' && !b.text) b.text = 'COUPEZ !';
+  return b;
+}
+
+function _scAdd(type) {
+  const scene = _scScene();
+  if (!scene) return;
+  _scScript(scene).blocks.push(_scNewBlock(type));
+  markModified();
+  renderScript();
+  const box = document.getElementById('sc-blocks');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+function _scMove(id, dir) {
+  const blocks = _scScript(_scScene()).blocks;
+  const i = blocks.findIndex(b => b.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= blocks.length) return;
+  [blocks[i], blocks[j]] = [blocks[j], blocks[i]];
+  markModified();
+  renderScript();
+}
+
+function _scDelete(id) {
+  const script = _scScript(_scScene());
+  script.blocks = script.blocks.filter(b => b.id !== id);
+  markModified();
+  renderScript();
+}
+
+// Brouillon : description, séquences du début, puis chaque élément de checklist suivi des dialogues qu'il
+// déclenche (directement ou par une de ses actions), dialogues de fin de checklist, le reste, et « COUPEZ ! ».
+function _scGenerateDraft() {
+  const scene = _scScene();
+  if (!scene) return;
+  const script = _scScript(scene);
+  if (script.blocks.length && !confirm('Remplacer le script actuel par un brouillon généré ?')) return;
+
+  const seqs = _dlgSeqs().filter(q => q.scene_id === scene.id);
+  const placed = new Set(), blocks = [];
+  const addSeq = q => { if (!placed.has(q.id)) { placed.add(q.id); blocks.push(_scNewBlock('sequence', { sequence_id: q.id })); } };
+
+  if (scene.description) blocks.push(_scNewBlock('text', { text: scene.description }));
+  seqs.filter(q => q.trigger?.type === 'scene_start').forEach(addSeq);
+  (scene.checklists || []).forEach(cl => {
+    (cl.items || []).forEach(it => {
+      blocks.push(_scNewBlock('checklist', { item_id: it.id }));
+      seqs.filter(q => (q.trigger?.type === 'checklist_item' && q.trigger.item_id === it.id) ||
+                       (q.trigger?.type === 'action' && (it.actions || []).includes(q.trigger.action_id))).forEach(addSeq);
+    });
+    seqs.filter(q => q.trigger?.type === 'checklist_done' && q.trigger.checklist_id === cl.id).forEach(addSeq);
+  });
+  seqs.filter(q => !placed.has(q.id)).forEach(q => {
+    const action = q.trigger?.type === 'action' ? (scene.actions || []).find(a => a.id === q.trigger.action_id) : null;
+    if (action) blocks.push(_scNewBlock('text', { text: `${action.label}.` }));
+    addSeq(q);
+  });
+  blocks.push(_scNewBlock('transition', { text: 'COUPEZ !' }));
+  script.blocks = blocks;
+  markModified();
+  renderScript();
+}
+
+// ── Aperçu de la page ─────────────────────────────────────────────
+
+function _scInline(text) {
+  return esc(text || '').replace(/==(.+?)==/g, '<mark class="sc-stabilo">$1</mark>').replace(/\n/g, '<br>');
+}
+
+function _scItem(scene, itemId) {
+  for (const cl of scene.checklists || []) for (const it of cl.items || []) if (it.id === itemId) return it;
+  return null;
+}
+
+// Une séquence au format scénario : NOM / (indication de jeu) / réplique ; consignes et actions en didascalies.
+function _scSequenceHtml(seq, cast) {
+  const tl = ryResolve(seq, _sc.players);
+  return tl.cues.filter(c => c.type !== 'event').map(c => {
+    const n = c.node, char = _charById(n.speaker_id);
+    if (c.type === 'instruction' || c.type === 'action' || !char) {
+      return `<p class="sc-action${c.type === 'action' ? ' sc-physical' : ''}">${_scInline(n.text_fr)}</p>`;
+    }
+    cast.add(char.id);
+    const paren = [n.emotion, SC_STYLE_PAREN[n.style]].filter(Boolean).join(', ');
+    const pov = _sc.pov && char.id === _sc.pov;
+    const name = c.all ? 'TOUS' : (char.name || '').toUpperCase();
+    return `<div class="sc-dlg${pov ? ' sc-pov' : ''}" ${pov ? `style="--pov:${esc(char.color || '#ffd400')}"` : ''}>
+      <div class="sc-char">${esc(name)}</div>
+      ${paren ? `<div class="sc-paren">(${esc(paren)})</div>` : ''}
+      <div class="sc-line">${_scInline(n.text_fr)}</div></div>`;
+  }).join('');
+}
+
+function _scRenderPage() {
+  const page = document.getElementById('sc-page');
+  const scene = _scScene();
+  if (!page || !scene) return;
+  const script = _scScript(scene);
+  const film = currentFilm();
+  const cast = new Set(scene.roles_involved || []);
+
+  const body = script.blocks.map(b => {
+    switch (b.type) {
+      case 'text': return `<p class="sc-action">${_scInline(b.text)}</p>`;
+      case 'checklist': {
+        const it = _scItem(scene, b.item_id);
+        return it ? `<p class="sc-action"><mark class="sc-stabilo">${esc(it.label || '')}</mark></p>` : '';
+      }
+      case 'sequence': {
+        const seq = _seqById(b.sequence_id);
+        return seq ? _scSequenceHtml(seq, cast) : '';
+      }
+      case 'note': return b.text ? `<div class="sc-note">${_scInline(b.text)}</div>` : '';
+      case 'transition': return `<div class="sc-transition">${esc((b.text || '').toUpperCase())}</div>`;
+      default: return '';
+    }
+  }).join('');
+
+  const castNames = [...cast].map(id => _charById(id)).filter(Boolean)
+    .map(c => esc((c.name || '').toUpperCase()) + (c.actor_name && c.actor_name !== c.name ? ` <span class="sc-actor">(${esc(c.actor_name)})</span>` : ''));
+
+  page.innerHTML = `
+    <div class="sc-top"><span>${esc(film?.title || '')}</span><span>SÉQ. ${esc(scene.num)} — PRISE ${_sc.take}</span></div>
+    <div class="sc-heading">${esc(scene.num)}. ${esc(script.place || '')} ${esc((script.location || 'LIEU').toUpperCase())} — ${esc(script.time || '')}</div>
+    ${castNames.length ? `<div class="sc-cast">${castNames.join(', ')}</div>` : ''}
+    ${body || '<p class="sc-action" style="opacity:.4">(script vide)</p>'}`;
 }
 
 // ── CSV Export ────────────────────────────────────────────────────
