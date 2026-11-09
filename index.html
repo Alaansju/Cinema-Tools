@@ -718,6 +718,10 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .ry-event.ry-event-empty .ry-event-chip { background:var(--warning); }
 .ry-event.dragging .ry-event-chip { cursor:grabbing; outline:1px solid #fff; }
 .ry-event.fired .ry-event-chip { filter:brightness(1.35); }
+.spk-chips { display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+.spk-chip { border:1px solid var(--c); background:transparent; color:var(--c); border-radius:11px; padding:1px 8px; font-size:11px; cursor:pointer; }
+.spk-chip.on { background:var(--c); color:#fff; font-weight:700; }
+.dlg-nep-link-row { display:flex; align-items:center; gap:4px; }
 .ry-playhead { position:absolute; top:0; bottom:0; left:22%; width:2px; background:#ff4d4d; z-index:4; pointer-events:none; }
 .ry-rec { position:absolute; right:8px; top:6px; font-size:11px; font-weight:700; color:#ff4d4d; opacity:.15; z-index:4; }
 .ry-rec.on { opacity:1; }
@@ -3271,8 +3275,60 @@ function _dlgVersionColor(ver) {
     case 'duo':     return '#4db8ff';
     case 'trio':    return '#ffb347';
     case 'quatuor': return '#b47aff';
+    case 'best':    return '#4ade80'; // « si possible »
     case 'all':     return '#5a5d73'; // backward compat with old data
     default:        return '#5a5d73';
+  }
+}
+
+// Types de lien. « best » (si possible) est le lien par défaut : parmi plusieurs liens « si possible » partant d'un même nœud, on
+// prend la branche qui fait parler le plus de personnages présents (égalité : le premier lien). Les autres types sont ceux d'avant :
+// « other » (toujours, en parallèle) et duo / trio / quatuor (seulement à ce nombre de joueurs), gardés comme condition optionnelle.
+const DLG_LINK_KINDS = [['best','si possible'],['other','toujours'],['duo','2 joueurs'],['trio','3 joueurs'],['quatuor','4 joueurs']];
+function _dlgLinkLabel(v) { return (DLG_LINK_KINDS.find(k => k[0] === v) || [v, v])[1]; }
+
+// Personnages d'un nœud : plusieurs = la réplique est dite EN MÊME TEMPS (chacun sur sa ligne ; les absents sautent).
+// speaker_id reste le premier (anciennes données, export) ; speaker_ids n'existe que s'il y en a plusieurs.
+function _nodeSpeakerIds(node) {
+  if (Array.isArray(node.speaker_ids) && node.speaker_ids.length) return node.speaker_ids;
+  return node.speaker_id ? [node.speaker_id] : [];
+}
+function _nodeSpeakers(node) { return _nodeSpeakerIds(node).map(_charById).filter(Boolean); }
+function _nodeSpeakerNames(node) { return _nodeSpeakers(node).map(c => c.name).join(' + '); }
+
+// Changer le personnage principal remet le nœud à un seul personnage (le « ensemble » se refait avec les pastilles).
+function _setMainSpeaker(seqId, nodeId, value) {
+  const node = (_seqById(seqId)?.nodes || []).find(n => n.id === nodeId);
+  if (!node) return;
+  node.speaker_id = value;
+  node.speaker_ids = [];
+  markModified();
+}
+
+function _speakerChipsHtml(seqId, node) {
+  const players = _dlgChars().filter(c => c.role !== 'npc');
+  if (!players.length) return '';
+  const ids = _nodeSpeakerIds(node);
+  return `<div class="spk-chips" title="Personnages qui disent la réplique ENSEMBLE, chacun sur sa ligne. Ceux qui ne sont pas là sautent leur part.">
+    <span class="ry-label">Ensemble</span>${players.map(c => `<button type="button" class="spk-chip${ids.includes(c.id) ? ' on' : ''}"
+      style="--c:${esc(c.color || '#888')}" onclick="_toggleSpeaker('${seqId}','${node.id}','${c.id}')">${esc(c.name)}</button>`).join('')}</div>`;
+}
+
+function _toggleSpeaker(seqId, nodeId, charId) {
+  const node = (_seqById(seqId)?.nodes || []).find(n => n.id === nodeId);
+  if (!node) return;
+  let ids = _nodeSpeakerIds(node).slice();
+  ids = ids.includes(charId) ? ids.filter(i => i !== charId) : [...ids, charId];
+  node.speaker_id = ids[0] || '';
+  node.speaker_ids = ids.length > 1 ? ids : [];
+  markModified();
+  if (state.dlgView === 'editor') {
+    const card = document.querySelector(`.dlg-node-card[data-node-id="${nodeId}"]`);
+    if (card) card.replaceWith(_makeNodeCard(seqId, node));
+  } else if (state.dlgView === 'graph') {
+    _dgShowEditPanel(nodeId, seqId); _dgRefreshGraph(seqId); _dgApplyPreview();
+  } else if (state.dlgView === 'rythmo') {
+    _ryBuildBand(); _ryBuildCueTable();
   }
 }
 
@@ -3343,7 +3399,7 @@ function renderDlgList() {
     const card = document.createElement('div');
     card.className = 'dlg-seq-card' + (seq.id === state.selectedSeqId ? ' selected' : '');
     card.dataset.id = seq.id;
-    const speakerIds = [...new Set((seq.nodes||[]).map(n => n.speaker_id).filter(Boolean))];
+    const speakerIds = [...new Set((seq.nodes||[]).flatMap(n => _nodeSpeakerIds(n)))];
     const speakerDots = speakerIds.map(sid => _charColorDot(sid, 12)).join('');
     const scene = _dlgScenes().find(s => s.id === seq.scene_id);
     const sceneLabel = scene ? `<span class="tag" style="font-size:10px">${esc(scene.num)}</span>` : '';
@@ -3478,7 +3534,7 @@ function _makeNodeCard(seqId, node) {
       <div class="dlg-node-speaker">
         <span class="dlg-node-speaker-dot" style="background:${esc(charColor)}"></span>
         <select style="background:none;border:none;color:var(--text);font-weight:600;font-size:12px;cursor:pointer;max-width:120px"
-          onchange="saveNodeField('${seqId}','${node.id}','speaker_id',this.value);_refreshNodeCard(this.closest('.dlg-node-card'),'${seqId}','${node.id}')">
+          onchange="_setMainSpeaker('${seqId}','${node.id}',this.value);_refreshNodeCard(this.closest('.dlg-node-card'),'${seqId}','${node.id}')">
           <option value="">— Personnage —</option>${speakerOptions}
         </select>
       </div>
@@ -3494,6 +3550,7 @@ function _makeNodeCard(seqId, node) {
       </div>
     </div>
     <div class="dlg-node-locale-key">${esc(node.locale_key || _generateLocaleKey(seqId, node.id))}</div>
+    ${_ryIsSpoken(node.type) ? _speakerChipsHtml(seqId, node) : ''}
     <textarea class="dlg-node-text" placeholder="Texte en français…"
       oninput="saveNodeField('${seqId}','${node.id}','text_fr',this.value)">${esc(node.text_fr||'')}</textarea>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -3558,7 +3615,7 @@ function renderDlgTable() {
         <td><span class="tag" style="font-size:10px">${esc(scene?.num||seq.scene_id)}</span></td>
         <td style="font-size:12px">${esc(seq.label||seq.id)}</td>
         <td>${_versionBadge(node.version||'all')}</td>
-        <td style="display:flex;align-items:center;gap:5px">${_charColorDot(char?.id,10)}<span style="font-size:12px">${esc(char?.name||node.speaker_id||'—')}</span></td>
+        <td style="display:flex;align-items:center;gap:5px">${_charColorDot(char?.id,10)}<span style="font-size:12px">${esc(_nodeSpeakerNames(node)||char?.name||node.speaker_id||'—')}</span></td>
         <td class="text-col" style="font-size:12px">${esc(node.text_fr||'')}</td>
         <td style="font-size:11px;color:var(--text3)">${esc(node.emotion||'')}</td>
         <td style="text-align:center">${node.is_canon?'✓':''}</td>
@@ -3597,10 +3654,13 @@ function renderDlgNodeGraph(seqId) {
       <button class="btn-ghost btn-sm" id="dg-btn-del" onclick="_dgDeleteSelected()" title="Supprimer le nœud sélectionné">🗑 Suppr.</button>
       <div class="sep"></div>
       <button class="btn-ghost btn-sm" onclick="editSequenceMeta(state.selectedSeqId)">✏ Séquence</button>
+      <div class="sep"></div>
+      <span class="ry-label" title="Colore les liens suivis et grise ce qui est sauté pour ce nombre de joueurs (même réglage que la vue Rythmo)">Aperçu</span>
+      ${[2, 3, 4].map(n => `<button class="filter-chip dg-prev-chip ${n === _ry.players ? 'active' : ''}" data-n="${n}" onclick="_dgSetPreview(${n})">${n} joueurs</button>`).join('')}
       <span style="font-size:10px;color:var(--text3);margin-left:4px">Clic espace vide = créer · Tirer port = lier · Clic lien = version</span>
       <div class="dlg-ver-legend">
         <span style="color:var(--text3);font-size:10px">Liens :</span>
-        ${['other','duo','trio','quatuor'].map(v=>`<span><span class="dlg-ver-dot" style="background:${_dlgVersionColor(v)}"></span> ${v}</span>`).join('')}
+        ${DLG_LINK_KINDS.map(([v, label])=>`<span><span class="dlg-ver-dot" style="background:${_dlgVersionColor(v)}"></span> ${label}</span>`).join('')}
       </div>
     </div>
     <div class="dlg-graph-canvas-wrap" id="dlg-graph-canvas-wrap">
@@ -3645,7 +3705,7 @@ function _dgBuild(seqId) {
   _gs.linkData = linkData;
 
   const defs = svg.append('defs');
-  ['other','duo','trio','quatuor'].forEach(v => {
+  ['best','other','duo','trio','quatuor'].forEach(v => {
     defs.append('marker').attr('id', `dg-arr-${v}`)
       .attr('markerWidth',8).attr('markerHeight',8)
       .attr('refX',4).attr('refY',3).attr('orient','auto')
@@ -3777,6 +3837,50 @@ function _dgBuild(seqId) {
   _dgRenderLinks(linkG, linkData, seqId);
   _dgRenderNotes(noteG, seq, seqId);
   _dgRenderNodes(nodeG, nodes, seqId);
+  _dgApplyPreview();
+}
+
+// ── Aperçu par nombre de joueurs ──────────────────────────────────
+// Pour N joueurs : les liens réellement suivis (même calcul que la bande rythmo) restent colorés et épais, les autres s'estompent ;
+// les nœuds hors du chemin sont grisés, et ceux dont tous les personnages sont absents sont barrés d'un trait (ils sautent).
+function _dgSetPreview(n) {
+  _ry.players = n;
+  document.querySelectorAll('.dg-prev-chip').forEach(b => b.classList.toggle('active', +b.dataset.n === n));
+  _dgApplyPreview();
+}
+
+function _dgApplyPreview() {
+  const seq = _seqById(_gs.seqId);
+  if (!seq || !document.getElementById('dg-links')) return;
+  const actors = _ryActors().slice(0, _ry.players);
+  const walk = _ryWalkFull(seq, _ry.players, actors);
+  const linear = !(seq.nodes || []).some(n => (n.links || []).length); // sans liens, l'ordre de la liste fait foi
+
+  d3.select('#dg-links').selectAll('g.dg-link-grp').each(function(d) {
+    const sid = typeof d.source === 'object' ? d.source.id : d.source;
+    const tid = typeof d.target === 'object' ? d.target.id : d.target;
+    const on = walk.taken.has(sid + '>' + tid);
+    d3.select(this).select('.dg-link-line')
+      .attr('opacity', on ? 1 : 0.18).attr('stroke-width', on ? 3.5 : 1.5).attr('stroke-dasharray', on ? null : '5,4');
+  });
+
+  d3.select('#dg-nodes').selectAll('.dg-node').each(function(d) {
+    const nd = d._data;
+    const reached = linear || walk.reached.has(nd.id);
+    let opacity = reached ? 1 : 0.28;
+    // Atteint, mais personne pour le dire : la réplique saute.
+    const ids = _nodeSpeakerIds(nd);
+    const spoken = _ryIsSpoken(nd.type);
+    const skipped = reached && spoken && ids.length && _ryPlayersOf(nd).length && _ryPresentCount(nd, actors) === 0 && !_ryNpcsOf(nd).length;
+    if (skipped) opacity = 0.4;
+    d3.select(this).attr('opacity', opacity);
+    d3.select(this).select('.dg-skip-mark').remove();
+    if (skipped) {
+      const h = d.nh || 76;
+      d3.select(this).append('line').attr('class', 'dg-skip-mark').attr('x1', -70).attr('y1', -h / 2 + 4).attr('x2', 70).attr('y2', h / 2 - 4)
+        .attr('stroke', '#e05252').attr('stroke-width', 2).attr('pointer-events', 'none');
+    }
+  });
 }
 
 function _dgRenderLinks(linkG, linkData, seqId) {
@@ -4011,13 +4115,19 @@ function _dgApplyNodeSizeOnly(g, nh) {
   g.select('.dg-node-del').attr('y', -nh/2+14);
 }
 
+// Version d'un NOUVEAU lien : « si possible », sauf si on prolonge une chaîne réservée à un nombre de joueurs (duo / trio / quatuor).
+function _dgDefaultLinkVersion(nodeId) {
+  const eff = _dgNodeEffectiveVersion(nodeId);
+  return ['duo', 'trio', 'quatuor'].includes(eff) ? eff : 'best';
+}
+
 function _dgNodeEffectiveVersion(nodeId) {
   const incoming = (_gs.linkData || []).filter(lk => {
     const tid = typeof lk.target === 'object' ? lk.target.id : lk.target;
     return tid === nodeId;
   });
   if (!incoming.length) return 'other';
-  const vers = [...new Set(incoming.map(lk => (!lk.version || lk.version === 'all') ? 'other' : lk.version))];
+  const vers = [...new Set(incoming.map(lk => (!lk.version || lk.version === 'all' || lk.version === 'best') ? 'other' : lk.version))];
   return vers.length === 1 ? vers[0] : vers.join('→');
 }
 
@@ -4106,7 +4216,7 @@ function _dgApplyNodeStyle(g, d, seqId) {
 
     g.select('.dg-speaker-name')
       .attr('y', -nh/2+20)
-      .text(isSignal ? _dgSignalTitle(nd, seqId) : char?.name || nd.speaker_id || '');
+      .text(isSignal ? _dgSignalTitle(nd, seqId) : _nodeSpeakerNames(nd) || nd.speaker_id || '');
 
     g.select('.dg-node-fo').attr('y', -nh/2+36).attr('height', nh-47);
 
@@ -4181,9 +4291,12 @@ function _dgShowEditPanel(nodeId, seqId) {
   const outLinks = (node.links||[]);
   const linksHtml = outLinks.length ? outLinks.map((lk,i) => {
     const tNode = (seq.nodes||[]).find(n=>n.id===lk.target);
+    const kind = (!lk.version || lk.version === 'all') ? 'other' : lk.version;
     return `<div class="dlg-nep-link-row">
-      <span style="width:8px;height:8px;border-radius:50%;background:${_dlgVersionColor(lk.version||'all')};flex-shrink:0;display:inline-block"></span>
-      <span>${esc(tNode?.text_fr?.slice(0,18)||lk.target)}</span>
+      <span style="width:8px;height:8px;border-radius:50%;background:${_dlgVersionColor(kind)};flex-shrink:0;display:inline-block" title="${esc(_dlgLinkLabel(kind))}"></span>
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(_dlgLinkLabel(kind))} (l'ordre départage deux branches à égalité)">${i + 1}. ${esc(tNode?.text_fr?.slice(0,16)||lk.target)}</span>
+      <button class="btn-ghost btn-sm" style="padding:1px 4px;font-size:10px" title="Monter (priorité)" ${i === 0 ? 'disabled' : ''} onclick="_dgMoveLink('${seqId}','${node.id}',${i},-1)">↑</button>
+      <button class="btn-ghost btn-sm" style="padding:1px 4px;font-size:10px" title="Descendre" ${i === outLinks.length - 1 ? 'disabled' : ''} onclick="_dgMoveLink('${seqId}','${node.id}',${i},1)">↓</button>
       <button class="btn-ghost btn-sm" style="padding:1px 5px;font-size:10px" onclick="_dgDeleteLink('${seqId}','${node.id}',${i})">✕</button>
     </div>`;
   }).join('') : '<div style="font-size:11px;color:var(--text3)">Aucun lien sortant</div>';
@@ -4207,9 +4320,10 @@ function _dgShowEditPanel(nodeId, seqId) {
       <div>
         <div class="dlg-nep-label">Personnage</div>
         <select class="edit-select" style="width:100%;font-size:12px"
-          onchange="_dgSaveNodeField('${seqId}','${nodeId}','speaker_id',this.value);_dgRefreshGraph('${seqId}')">
+          onchange="_setMainSpeaker('${seqId}','${nodeId}',this.value);_dgShowEditPanel('${nodeId}','${seqId}');_dgRefreshGraph('${seqId}');_dgApplyPreview()">
           <option value="">— Aucun —</option>${charOpts}</select>
       </div>
+      ${_ryIsSpoken(node.type) ? _speakerChipsHtml(seqId, node) : ''}
       <div>
         <div class="dlg-nep-label">Émotion</div>
         <input class="edit-input" style="width:100%" value="${esc(node.emotion||'')}"
@@ -4266,6 +4380,7 @@ function _dgRefreshGraph(seqId) {
   d3.select('#dg-nodes').selectAll('.dg-node').each(function(d) {
     _dgApplyNodeStyle(d3.select(this), d, seqId);
   });
+  _dgApplyPreview();
 }
 
 // ── Node creation popup ───────────────────────────────────────────
@@ -4376,11 +4491,11 @@ function _dgCreateNodeAt(seqId, x, y, type, speakerId) {
     if (autoIsInput) {
       // New node → existing node (dragged from input port)
       const newNode = seq.nodes.find(n => n.id === id);
-      if (newNode) { if (!newNode.links) newNode.links = []; newNode.links.push({ target: autoSrc, version: inheritedVersion }); }
+      if (newNode) { if (!newNode.links) newNode.links = []; newNode.links.push({ target: autoSrc, version: _dgDefaultLinkVersion(autoSrc) }); }
     } else {
       // Existing node → new node (dragged from output port)
       if (!srcNode.links) srcNode.links = [];
-      srcNode.links.push({ target: id, version: inheritedVersion });
+      srcNode.links.push({ target: id, version: _dgDefaultLinkVersion(autoSrc) });
     }
   }
 
@@ -4398,7 +4513,7 @@ function _dgCreateLink(sourceId, targetId, seqId) {
   if (!src) return;
   if (!src.links) src.links = [];
   if (src.links.some(lk => lk.target === targetId)) { toast('Lien déjà existant'); return; }
-  src.links.push({ target: targetId, version: _dgNodeEffectiveVersion(sourceId) });
+  src.links.push({ target: targetId, version: _dgDefaultLinkVersion(sourceId) });
   markModified();
   _dgRebuildLinks(seqId);
   toast('Lien créé', 'success');
@@ -4421,6 +4536,7 @@ function _dgRebuildLinks(seqId) {
   if (_gs.nodeMap) _gs.nodes.forEach(n => _gs.nodeMap.set(n.id, n));
   _dgRenderLinks(d3.select('#dg-links'), linkData, sid);
   _gs.tick?.();
+  _dgApplyPreview();
 }
 
 // ── Link version popup ────────────────────────────────────────────
@@ -4433,12 +4549,15 @@ function _dgShowLinkVersionPopup(clientX, clientY, linkDatum, seqId) {
   const vw = window.innerWidth;
   popup.style.cssText = `left:${Math.min(clientX,vw-220)}px;top:${clientY}px;`;
 
-  ['other','duo','trio','quatuor'].forEach(v => {
+  DLG_LINK_KINDS.forEach(([v, label]) => {
     const btn = document.createElement('button');
     btn.className = 'btn-ghost btn-sm';
     const cur = (!linkDatum.version || linkDatum.version === 'all') ? 'other' : linkDatum.version;
     btn.style.cssText = `color:${_dlgVersionColor(v)};border-color:${v===cur?_dlgVersionColor(v):'var(--border)'};${v===cur?'background:'+_dlgVersionColor(v)+'22':''}`;
-    btn.textContent = v;
+    btn.textContent = label;
+    btn.title = v === 'best' ? 'Si possible : parmi les liens « si possible » du nœud, on prend la branche qui fait parler le plus de personnages présents'
+              : v === 'other' ? 'Toujours : suivi en parallèle des autres liens'
+              : `Seulement à ${label}`;
     btn.onclick = () => {
       const seq = _seqById(seqId);
       const sid = typeof linkDatum.source === 'object' ? linkDatum.source.id : linkDatum.source;
@@ -4487,6 +4606,18 @@ function _dgDeleteNode(seqId, nodeId) {
   (seq.nodes||[]).forEach(n => { n.links = (n.links||[]).filter(lk => lk.target !== nodeId); });
   markModified();
   renderDlgNodeGraph(seqId);
+}
+
+// Réordonne les liens sortants d'un nœud : à égalité, la branche « si possible » du dessus l'emporte.
+function _dgMoveLink(seqId, nodeId, index, delta) {
+  const node = (_seqById(seqId)?.nodes || []).find(n => n.id === nodeId);
+  const links = node?.links;
+  const to = index + delta;
+  if (!links || to < 0 || to >= links.length) return;
+  [links[index], links[to]] = [links[to], links[index]];
+  markModified();
+  _dgRebuildLinks(seqId);
+  _dgShowEditPanel(nodeId, seqId);
 }
 
 function _dgDeleteLink(seqId, nodeId, linkIdx) {
@@ -4771,24 +4902,70 @@ function _ryDuration(node) {
   return Math.max(min, letters * 70);
 }
 
-// Ordre de lecture. Graphe : on part de l'entrée (ou des nœuds sans lien entrant) et on suit TOUS les
-// liens valides pour ce nombre de joueurs (ceux de la version exacte s'il y en a, sinon les communs),
-// niveau par niveau, de haut en bas. Sans aucun lien : ordre de la liste.
-function _ryWalk(seq, playerCount) {
+// Personnages d'un nœud (joueurs / PNJ) et combien de joueurs présents le disent.
+function _ryPlayersOf(node) { return _nodeSpeakers(node).filter(c => c.role !== 'npc'); }
+function _ryNpcsOf(node) { return _nodeSpeakers(node).filter(c => c.role === 'npc'); }
+function _ryPresentCount(node, actors) { return _ryPlayersOf(node).filter(c => actors.includes(c.actor_name || c.name)).length; }
+
+// Ordre de lecture. Graphe : on part de l'entrée (ou des nœuds sans lien entrant) et on suit les liens valides pour ce nombre de joueurs,
+// niveau par niveau, de haut en bas :
+//  - liens « toujours » / duo / trio / quatuor : comme avant (ceux de la version exacte s'il y en a, sinon les communs, tous suivis) ;
+//  - liens « si possible » (best) : on n'en suit QU'UN, la branche qui fait parler le plus de personnages présents. On ne compte que
+//    les nœuds propres à la branche (ceux que les autres branches n'atteignent pas : après le point de rencontre, tout est commun).
+//    Égalité : le premier lien du nœud. Un seul lien « si possible » est toujours suivi.
+// Sans aucun lien : ordre de la liste. Renvoie aussi les liens suivis (« taken », clés « source>cible ») et les nœuds atteints,
+// pour l'aperçu coloré du graphe.
+function _ryWalkFull(seq, playerCount, actors) {
   const nodes = seq.nodes || [];
   const ver = { 2: 'duo', 3: 'trio', 4: 'quatuor' }[playerCount];
   const isCommon = v => !v || v === 'other' || v === 'all';
+  const taken = new Set();
   const hasLinks = nodes.some(n => (n.links || []).length);
-  if (!hasLinks) return nodes.filter(n => isCommon(n.version) || n.version === ver);
+  if (!hasLinks) {
+    const order = nodes.filter(n => isCommon(n.version) || n.version === ver);
+    return { order, taken, reached: new Set(order.map(n => n.id)) };
+  }
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   // Un lien créé depuis un nœud à plusieurs versions porte « duo→trio » : on teste chaque partie.
   const parts = l => String(l.version || 'other').split('→');
-  const followed = n => {
-    const links = (n.links || []).filter(l => byId.has(l.target));
-    const exact = links.filter(l => parts(l).includes(ver));
-    return exact.length ? exact : links.filter(l => parts(l).some(isCommon));
+  const isBest = l => l.version === 'best';
+  const reachFrom = id => {
+    const seen = new Set(), stack = [id];
+    while (stack.length) {
+      const x = stack.pop();
+      if (seen.has(x) || !byId.has(x)) continue;
+      seen.add(x);
+      (byId.get(x).links || []).forEach(l => stack.push(l.target));
+    }
+    return seen;
   };
+  const cache = new Map();
+  const followed = n => {
+    if (cache.has(n.id)) return cache.get(n.id);
+    const links = (n.links || []).filter(l => byId.has(l.target));
+    const plain = links.filter(l => !isBest(l));
+    const exact = plain.filter(l => parts(l).includes(ver));
+    const out = exact.length ? exact : plain.filter(l => parts(l).some(isCommon));
+    const best = links.filter(isBest);
+    if (best.length === 1) out.push(best[0]);
+    else if (best.length > 1) {
+      const reach = best.map(l => reachFrom(l.target));
+      let top = -1, pick = best[0];
+      best.forEach((l, i) => {
+        let score = 0;
+        reach[i].forEach(id => {
+          if (reach.some((r, j) => j !== i && r.has(id))) return; // nœud commun à une autre branche : ne départage pas
+          score += _ryPresentCount(byId.get(id), actors);
+        });
+        if (score > top) { top = score; pick = l; }
+      });
+      out.push(pick);
+    }
+    cache.set(n.id, out);
+    return out;
+  };
+
   const targets = new Set();
   nodes.forEach(n => (n.links || []).forEach(l => targets.add(l.target)));
   let roots = nodes.filter(n => n.type === 'entry');
@@ -4797,7 +4974,9 @@ function _ryWalk(seq, playerCount) {
 
   const reached = new Set(roots.map(n => n.id)), queue = [...roots], indeg = new Map();
   while (queue.length) {
-    followed(queue.shift()).forEach(l => {
+    const n = queue.shift();
+    followed(n).forEach(l => {
+      taken.add(n.id + '>' + l.target);
       indeg.set(l.target, (indeg.get(l.target) || 0) + 1);
       if (!reached.has(l.target)) { reached.add(l.target); queue.push(byId.get(l.target)); }
     });
@@ -4813,7 +4992,8 @@ function _ryWalk(seq, playerCount) {
       if (indeg.get(l.target) === 0) ready.push(byId.get(l.target));
     });
   }
-  return order.sort((a, b) => depth.get(a.id) - depth.get(b.id) || (a.y || 0) - (b.y || 0) || (a.x || 0) - (b.x || 0));
+  order.sort((a, b) => depth.get(a.id) - depth.get(b.id) || (a.y || 0) - (b.y || 0) || (a.x || 0) - (b.x || 0));
+  return { order, taken, reached };
 }
 
 // Séquence → { lanes, cues, total_ms, skipped }. Une réplique dont le comédien est absent est sautée.
@@ -4827,7 +5007,7 @@ function ryResolve(seq, playerCount) {
              image: role?.image || realite.find(c => c.name === actor)?.image || '' };
   });
   const cues = [], skipped = [];
-  const order = _ryWalk(seq, playerCount);
+  const order = _ryWalkFull(seq, playerCount, actors.map(a => a)).order;
   (seq.nodes || []).forEach(n => {
     if (_ryIsSpoken(n.type) && !order.includes(n))
       skipped.push({ node: n, reason: `pas sur le chemin à ${playerCount} joueurs (non relié, ou lien d'une autre version)` });
@@ -4842,19 +5022,26 @@ function ryResolve(seq, playerCount) {
       return;
     }
     if (!_ryIsSpoken(node.type)) return;
-    const char = _charById(node.speaker_id);
-    let lane = -1; // -1 = bandeau (PNJ, consigne sans personnage)
-    if (char && char.role !== 'npc') {
-      lane = actors.indexOf(char.actor_name || char.name);
-      if (lane < 0) { skipped.push({ node, reason: `${char.actor_name || char.name} n'est pas présent à ${playerCount} joueurs` }); return; }
-      if (node.scope === 'all') lane = -1;
+    // Personnages : un nœud peut en avoir plusieurs (dit en même temps, chacun sur sa ligne). Ceux qui ne sont pas là sautent leur part ;
+    // plus personne = la réplique saute. Un PNJ ou une consigne sans personnage passe par le bandeau.
+    const players = _ryPlayersOf(node), npcs = _ryNpcsOf(node);
+    const present = players.filter(c => actors.indexOf(c.actor_name || c.name) >= 0);
+    if (players.length && !present.length && !npcs.length) {
+      skipped.push({ node, reason: `${players.map(c => c.actor_name || c.name).join(' + ')} ${players.length > 1 ? "ne sont pas présents" : "n'est pas présent"} à ${playerCount} joueurs` });
+      return;
+    }
+    const targets = []; // une entrée = une ligne de la bande
+    if (node.scope === 'all' && present.length) targets.push({ lane: -1, char: present[0], all: true });
+    else {
+      present.forEach(c => targets.push({ lane: actors.indexOf(c.actor_name || c.name), char: c }));
+      if (npcs.length || !players.length) targets.push({ lane: -1, char: npcs[0] || null });
     }
     const dur = _ryDuration(node);
     const delay = node.delay_ms || 0;
     const first = !cues.some(c => c.type !== 'event');
     const start = Math.max(0, node.timing === 'with' && !first ? lastStart + delay : end + (first ? 0 : RY_GAP_MS) + delay);
-    cues.push({ node, type: node.type || 'dialogue', lane, start, dur, all: node.scope === 'all',
-                name: char?.name || '', color: char?.color || '#8b8fa8' });
+    targets.forEach(t => cues.push({ node, type: node.type || 'dialogue', lane: t.lane, start, dur, all: !!t.all,
+                name: t.all ? present.map(c => c.name).join(' + ') : t.char?.name || '', color: t.char?.color || '#8b8fa8' }));
     lastStart = start;
     end = Math.max(end, start + dur);
   });
@@ -5141,7 +5328,7 @@ function _ryDragStart(e) {
   const x0 = e.clientX, left0 = parseFloat(el.style.left), width0 = parseFloat(el.style.width);
   const delay0 = cue.node.delay_ms || 0, dur0 = cue.dur;
   // Fin de la réplique précédente : sert à afficher l'écart pendant le déplacement.
-  const prevEnd = Math.max(0, ..._ry.timeline.cues.slice(0, index).filter(c => c.type !== 'event').map(c => c.start + c.dur));
+  const prevEnd = Math.max(0, ..._ry.timeline.cues.slice(0, index).filter(c => c.type !== 'event' && c.node !== cue.node).map(c => c.start + c.dur));
   const tip = document.createElement('div');
   tip.className = 'ry-drag-tip';
   band.appendChild(tip);
@@ -5228,14 +5415,16 @@ function _ryBuildCueTable() {
   const box = document.getElementById('ry-cues');
   const tl = _ry.timeline;
   if (!box || !tl) return;
-  const spoken = tl.cues; // répliques ET signaux
+  // Une ligne par NŒUD (un nœud à plusieurs personnages a une réplique par ligne de la bande, mais un seul texte à modifier).
+  const spoken = tl.cues.filter((c, i) => tl.cues.findIndex(o => o.node === c.node) === i);
+  const namesOf = node => tl.cues.filter(o => o.node === node && o.name).map(o => o.name).join(' + ');
   if (!spoken.length) { box.innerHTML = '<div class="empty-state"><p>Aucune réplique jouable avec ce nombre de joueurs</p></div>' + _rySkippedHtml(tl); return; }
   const seqId = _ry.seqId;
   box.innerHTML = `<table class="data-table"><thead><tr>
       <th>Début</th><th>Personnage</th><th>Type</th><th>Texte</th><th>Placement</th><th>Durée (ms)</th>
     </tr></thead><tbody>${spoken.map(c => `<tr>
       <td style="font-family:monospace;font-size:11px;color:var(--text3)">${(c.start / 1000).toFixed(2)}s</td>
-      <td><span style="color:${esc(c.color || '#8b8fa8')};font-weight:600">${c.type === 'event' ? '📡' : esc(c.name || '—')}</span></td>
+      <td><span style="color:${esc(c.color || '#8b8fa8')};font-weight:600">${c.type === 'event' ? '📡' : esc(namesOf(c.node) || '—')}</span></td>
       <td style="font-size:11px;color:var(--text2)">${esc(_ryTypeLabel(c.type))}</td>
       <td><input class="edit-input" style="width:100%;font-size:12px" value="${esc(c.node.text_fr || '')}"
         onchange="_rySaveNode('${seqId}','${c.node.id}','text_fr',this.value)"></td>
@@ -5889,15 +6078,17 @@ function _scItem(scene, itemId) {
 // Une séquence au format scénario : NOM / (indication de jeu) / réplique ; consignes et actions en didascalies.
 function _scSequenceHtml(seq, cast) {
   const tl = ryResolve(seq, _sc.players);
-  return tl.cues.filter(c => c.type !== 'event').map(c => {
+  const seenNodes = new Set(); // un nœud à plusieurs personnages = une seule réplique dite ensemble
+  return tl.cues.filter(c => c.type !== 'event' && !seenNodes.has(c.node) && seenNodes.add(c.node)).map(c => {
     const n = c.node, char = _charById(n.speaker_id);
+    const together = tl.cues.filter(o => o.node === n && !o.all && o.name).map(o => o.name);
     if (c.type === 'instruction' || c.type === 'action' || !char) {
       return `<p class="sc-action${c.type === 'action' ? ' sc-physical' : ''}">${_scInline(n.text_fr)}</p>`;
     }
     cast.add(char.id);
     const paren = [n.emotion, SC_STYLE_PAREN[n.style]].filter(Boolean).join(', ');
     const pov = _sc.pov && char.id === _sc.pov;
-    const name = c.all ? 'TOUS' : (char.name || '').toUpperCase();
+    const name = c.all ? 'TOUS' : (together.length > 1 ? together.join(' + ') : (char.name || '')).toUpperCase();
     return `<div class="sc-dlg${pov ? ' sc-pov' : ''}" ${pov ? `style="--pov:${esc(char.color || '#ffd400')}"` : ''}>
       <div class="sc-char">${esc(name)}</div>
       ${paren ? `<div class="sc-paren">(${esc(paren)})</div>` : ''}
@@ -5954,7 +6145,7 @@ function exportDialogueCSV() {
         key, scene?.num || seq.scene_id || '',
         seq.label || seq.id,
         node.version || 'all',
-        char?.name || node.speaker_id || '',
+        _nodeSpeakerNames(node) || char?.name || node.speaker_id || '',
         node.text_fr || '', node.emotion || '',
         node.is_canon ? 'true' : 'false'
       ]);
