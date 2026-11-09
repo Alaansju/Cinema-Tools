@@ -648,7 +648,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .dlg-node-add-btn:hover { border-color:var(--accent); color:var(--accent); }
 .dlg-node-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; display:flex; flex-direction:column; gap:6px; transition:all .15s; }
 .dlg-node-card.type-canon { border-style:dashed; border-color:var(--warning); }
-.dlg-node-card.type-event { border-color:var(--c-fbi); }
+.dlg-node-card.type-event { border-color:#2fb5c9; }
 .dlg-node-card.type-branch { border-color:var(--c-mixte); }
 .dlg-node-header { display:flex; align-items:center; gap:6px; }
 .dlg-node-speaker { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:600; }
@@ -656,7 +656,7 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .node-type-badge { display:inline-flex; align-items:center; padding:1px 6px; border-radius:10px; font-size:10px; font-weight:700; }
 .node-type-badge.dialogue { background:color-mix(in srgb,var(--accent) 18%,transparent); color:var(--accent); }
 .node-type-badge.canon    { background:color-mix(in srgb,var(--warning) 18%,transparent); color:var(--warning); }
-.node-type-badge.event    { background:color-mix(in srgb,var(--c-fbi) 18%,transparent); color:var(--c-fbi); }
+.node-type-badge.event    { background:color-mix(in srgb,#2fb5c9 18%,transparent); color:#2fb5c9; }
 .node-type-badge.branch   { background:color-mix(in srgb,var(--c-mixte) 18%,transparent); color:var(--c-mixte); }
 .dlg-node-locale-key { font-size:10px; font-family:monospace; color:var(--text3); }
 .dlg-node-text { width:100%; min-height:40px; padding:6px 8px; border-radius:var(--radius); border:1px solid var(--border); background:var(--bg3); color:var(--text); font-size:13px; font-family:inherit; resize:vertical; }
@@ -712,7 +712,12 @@ textarea.gp-input { resize: vertical; min-height: 44px; }
 .ry-cue.ry-style-chuchote { font-style:italic; font-weight:400; opacity:.75; }
 .ry-cue.ry-style-chante { font-style:italic; letter-spacing:.06em; }
 .ry-cue.ry-style-pense { font-weight:400; opacity:.85; border-left-style:dotted; }
-.ry-event { position:absolute; top:0; width:0; border-left:1px dotted var(--c-fbi); }
+.ry-event { position:absolute; top:0; width:0; border-left:1px dashed #2fb5c9; z-index:3; }
+.ry-event-chip { position:absolute; top:2px; left:0; height:16px; line-height:16px; box-sizing:border-box; padding:0 9px 0 7px; border-radius:0 11px 11px 0; background:#2fb5c9; color:#fff; font-size:11px; font-weight:700; white-space:nowrap; max-width:240px; overflow:hidden; text-overflow:ellipsis; cursor:grab; user-select:none; }
+.ry-event.ry-event-empty { border-left-color:var(--warning); }
+.ry-event.ry-event-empty .ry-event-chip { background:var(--warning); }
+.ry-event.dragging .ry-event-chip { cursor:grabbing; outline:1px solid #fff; }
+.ry-event.fired .ry-event-chip { filter:brightness(1.35); }
 .ry-playhead { position:absolute; top:0; bottom:0; left:22%; width:2px; background:#ff4d4d; z-index:4; pointer-events:none; }
 .ry-rec { position:absolute; right:8px; top:6px; font-size:11px; font-weight:700; color:#ff4d4d; opacity:.15; z-index:4; }
 .ry-rec.on { opacity:1; }
@@ -1583,6 +1588,7 @@ function openScenePanel(id) {
       </div>
     </div>
     ${_sceneActionsHtml(scene)}
+    ${_sceneSignalsHtml(scene)}
     ${_sceneChecklistsHtml(scene)}`;
 
   document.getElementById('scene-panel').classList.add('open');
@@ -3478,7 +3484,7 @@ function _makeNodeCard(seqId, node) {
       </div>
       <select style="background:none;border:none;color:var(--text2);font-size:11px;cursor:pointer"
         onchange="saveNodeField('${seqId}','${node.id}','type',this.value);this.closest('.dlg-node-card').className='dlg-node-card type-'+this.value">
-        ${RY_NODE_TYPES.map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('')}
+        ${RY_NODE_TYPES.map(t=>`<option value="${t}" ${t===node.type?'selected':''}>${_ryTypeLabel(t)}</option>`).join('')}
       </select>
       <select style="background:none;border:none;font-size:11px;cursor:pointer;color:${_dlgVersionColor(node.version||'all')}"
         onchange="saveNodeField('${seqId}','${node.id}','version',this.value)">${verOpts}</select>
@@ -4159,7 +4165,7 @@ function _dgShowEditPanel(nodeId, seqId) {
 
   const charOpts = _dlgChars().map(c => `<option value="${c.id}" ${c.id===node.speaker_id?'selected':''}>${esc(c.name)}</option>`).join('');
   const typeOpts = RY_NODE_TYPES.map(t =>
-    `<option value="${t}" ${t===node.type?'selected':''}>${t}</option>`).join('');
+    `<option value="${t}" ${t===node.type?'selected':''}>${_ryTypeLabel(t)}</option>`).join('');
   const effVer = _dgNodeEffectiveVersion(nodeId);
   const effVerColor = effVer.includes('→') ? 'var(--text3)' : _dlgVersionColor(effVer);
   const outLinks = (node.links||[]);
@@ -4174,7 +4180,7 @@ function _dgShowEditPanel(nodeId, seqId) {
 
   panel.innerHTML = `
     <div class="dlg-nep-header">
-      <span class="dlg-nep-title">${esc(node.type||'dialogue')}</span>
+      <span class="dlg-nep-title">${esc(_ryTypeLabel(node.type||'dialogue'))}</span>
       <button class="btn-ghost btn-sm" style="padding:2px 6px" onclick="_dgClosePanel()">✕</button>
     </div>
     <div class="dlg-nep-body">
@@ -4307,7 +4313,7 @@ function _dgShowCreationPopup(screenX, screenY, cx, cy, seqId) {
 
   const types = [
     { type:'dialogue', label:'💬 Dialogue' },
-    { type:'event',    label:'⚡ Événement' },
+    { type:'event',    label:'📡 Signal' },
     { type:'entry',    label:'▶ Entrée' },
     { type:'exit',     label:'■ Fin' },
   ];
@@ -4724,6 +4730,8 @@ function saveNodeField(seqId, nodeId, field, value) {
 // ══════════════════════════════════════════════════════════════════
 
 const RY_NODE_TYPES = ['dialogue','instruction','action','event','entry','exit'];
+// Le nœud « event » est affiché « signal » : il déclenche quelque chose dans le jeu (porte qui s'ouvre…). Le type stocké reste « event ».
+function _ryTypeLabel(t) { return t === 'event' ? 'signal' : t; }
 const RY_STYLES     = ['normal','cri','chuchote','chante','pense'];
 const RY_TRIGGERS   = [['manual','Manuel (test / code)'],['scene_start','Début de la scène'],['action','Action de la scène'],
                        ['checklist_item','Élément de checklist validé'],['checklist_done','Checklist terminée']];
@@ -4814,9 +4822,15 @@ function ryResolve(seq, playerCount) {
     if (_ryIsSpoken(n.type) && !order.includes(n))
       skipped.push({ node: n, reason: `pas sur le chemin à ${playerCount} joueurs (non relié, ou lien d'une autre version)` });
   });
-  let end = 0, lastStart = 0;
+  let end = 0, lastStart = 0, lastSignal = 0;
   order.forEach(node => {
-    if (node.type === 'event') { cues.push({ node, type: 'event', lane: -1, start: end, dur: 0 }); return; }
+    if (node.type === 'event') {
+      // Signal : repère sans durée, placé comme une réplique (« avec » / « après » + délai) mais absent de la suite de la bande.
+      const at = Math.max(0, (node.timing === 'with' ? lastStart : end) + (node.delay_ms || 0));
+      cues.push({ node, type: 'event', lane: -1, start: at, dur: 0 });
+      lastSignal = Math.max(lastSignal, at);
+      return;
+    }
     if (!_ryIsSpoken(node.type)) return;
     const char = _charById(node.speaker_id);
     let lane = -1; // -1 = bandeau (PNJ, consigne sans personnage)
@@ -4837,7 +4851,48 @@ function ryResolve(seq, playerCount) {
   // Pas de ligne vide : seuls les comédiens qui ont au moins une réplique gardent une ligne.
   const used = lanes.map((_, i) => i).filter(i => cues.some(c => c.lane === i));
   cues.forEach(c => { if (c.lane >= 0) c.lane = used.indexOf(c.lane); });
-  return { lanes: used.length ? used.map(i => lanes[i]) : lanes.slice(0, 1), cues, total_ms: end, skipped };
+  return { lanes: used.length ? used.map(i => lanes[i]) : lanes.slice(0, 1), cues, total_ms: Math.max(end, lastSignal), skipped };
+}
+
+// ── Signaux de scène ──────────────────────────────────────────────
+// Un signal est le sens inverse d'une action : l'action va du jeu vers les dialogues (« le joueur casse le vase »), le signal va de
+// la bande rythmo vers le jeu (« la porte de l'hélicoptère s'ouvre » ici, sur le nœud). Dans Unity, un SceneSignalRelay relie le signal
+// à des channels. Dans les données : scene.signals[] {id,label,note} et node.signal_id.
+function _findSignal(sceneId, signalId) {
+  return (_findScene(sceneId)?.signals || []).find(sg => sg.id === signalId) || null;
+}
+
+function _rySignalPickerHtml(seqId, node) {
+  const scene = _findScene(_seqById(seqId)?.scene_id);
+  if (!scene) return '<span class="ry-label" style="color:var(--warning)">Lie d\'abord la séquence à une scène (✏ Séquence)</span>';
+  const cur = node.signal_id || '';
+  const signals = scene.signals || [];
+  return `<select class="edit-select" style="font-size:11px;padding:3px 6px;max-width:210px"
+      onchange="_rySignalPicked('${seqId}','${node.id}',this)">
+      <option value="" ${cur ? '' : 'selected'}>— Choisir un signal —</option>
+      ${signals.map(sg => `<option value="${sg.id}" ${sg.id === cur ? 'selected' : ''}>${esc(sg.label)}</option>`).join('')}
+      <option value="__new__">+ Nouveau signal…</option>
+    </select>`;
+}
+
+function _rySignalPicked(seqId, nodeId, select) {
+  const seq = _seqById(seqId);
+  const node = (seq?.nodes || []).find(n => n.id === nodeId);
+  const scene = _findScene(seq?.scene_id);
+  if (!node || !scene) return;
+  let id = select.value;
+  if (id === '__new__') {
+    const label = prompt(`Nouveau signal pour ${scene.num} — ${scene.title} :\n(ex : Ouverture de la porte)`, node.text_fr || '');
+    if (!label || !label.trim()) { select.value = node.signal_id || ''; return; }
+    id = addSceneSignal(scene.id, label.trim());
+  }
+  node.signal_id = id;
+  // Un nœud sans texte prend le nom du signal (c'est ce que montrent le graphe et la bande).
+  if (id && !node.text_fr) node.text_fr = _findSignal(scene.id, id)?.label || '';
+  markModified();
+  if (state.dlgView === 'rythmo') renderDlgRythmo(seqId);
+  else if (state.dlgView === 'graph') { _dgShowEditPanel(nodeId, seqId); _dgRefreshGraph(seqId); }
+  else if (state.dlgView === 'editor') renderDlgEditor(seqId);
 }
 
 // Champs rythmo d'un nœud (carte de l'éditeur de nœuds et panneau du graphe).
@@ -4845,6 +4900,15 @@ function _ryNodeFieldsHtml(seqId, node, saveFn) {
   const sel = (field, opts, cur) => `<select class="edit-select" style="font-size:11px;padding:3px 6px"
       onchange="${saveFn}('${seqId}','${node.id}','${field}',this.value)">
       ${opts.map(([v, l]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  if (node.type === 'event') {
+    return `<div class="ry-node-fields">
+    ${_rySignalPickerHtml(seqId, node)}
+    ${sel('timing', [['after','Après la précédente'],['with','En même temps']], node.timing || 'after')}
+    <input type="number" class="edit-input" style="width:74px;font-size:11px;padding:3px 6px" placeholder="délai ms"
+      title="Décalage en ms par rapport à la fin de la réplique précédente (négatif = avant). Se règle aussi en glissant le signal sur la bande." value="${node.delay_ms || ''}"
+      oninput="${saveFn}('${seqId}','${node.id}','delay_ms',+this.value)">
+  </div>`;
+  }
   return `<div class="ry-node-fields">
     ${sel('timing', [['after','Après la précédente'],['with','En même temps']], node.timing || 'after')}
     <input type="number" class="edit-input" style="width:74px;font-size:11px;padding:3px 6px" placeholder="délai ms"
@@ -4928,7 +4992,7 @@ function _ryEnableScrub(band) {
     seek(_ry.t + delta / _ry.pps * 1000);
   }, { passive: false });
   band.addEventListener('pointerdown', e => {
-    if (e.button !== 0 || e.target.closest('.ry-cue')) return; // une réplique se déplace, elle (voir _ryDragStart)
+    if (e.button !== 0 || e.target.closest('.ry-cue, .ry-event')) return; // une réplique se déplace, elle (voir _ryDragStart)
     e.preventDefault();
     _ryStop();
     band.setPointerCapture(e.pointerId);
@@ -4997,7 +5061,7 @@ function _rySaveSeq(seqId, path, value) {
   markModified();
 }
 
-const RY_LANE_H = 46, RY_STRIP_H = 30;
+const RY_LANE_H = 46, RY_STRIP_H = 30, RY_SIG_H = 20; // RY_SIG_H : rangée des signaux, au-dessus du bandeau (seulement s'il y en a)
 
 function _ryBuildBand() {
   const band = document.getElementById('ry-band');
@@ -5006,18 +5070,24 @@ function _ryBuildBand() {
   const tl = _ry.timeline = ryResolve(seq, _ry.players);
   const px = ms => ms / 1000 * _ry.pps;
   const lanesH = tl.lanes.length * RY_LANE_H;
-  band.style.height = (RY_STRIP_H + lanesH) + 'px';
+  const off = tl.cues.some(c => c.type === 'event') ? RY_SIG_H : 0; // rangée des signaux
+  band.style.height = (off + RY_STRIP_H + lanesH) + 'px';
 
-  const laneRows = tl.lanes.map((l, i) => `<div class="ry-lane" style="top:${RY_STRIP_H + i * RY_LANE_H}px;height:${RY_LANE_H}px">
+  const laneRows = tl.lanes.map((l, i) => `<div class="ry-lane" style="top:${off + RY_STRIP_H + i * RY_LANE_H}px;height:${RY_LANE_H}px">
       <div class="ry-lane-head">
         ${l.image ? `<img src="${esc(l.image)}" style="border-color:${esc(l.color)}">` : `<span class="ry-lane-dot" style="background:${esc(l.color)}">${esc(l.name.slice(0, 1))}</span>`}
         <span class="ry-lane-name" style="color:${esc(l.color)}">${esc(l.name)}</span>
       </div></div>`).join('');
 
   const cueHtml = tl.cues.map((c, i) => {
-    if (c.type === 'event') return `<div class="ry-event" style="left:${px(c.start)}px;height:${RY_STRIP_H + lanesH}px" title="${esc(c.node.text_fr || 'event')}"></div>`;
+    if (c.type === 'event') {
+      const sig = _findSignal(seq.scene_id, c.node.signal_id);
+      const label = sig?.label || c.node.text_fr || 'signal';
+      return `<div class="ry-event${sig ? '' : ' ry-event-empty'}" data-i="${i}" style="left:${px(c.start)}px;height:${off + RY_STRIP_H + lanesH}px"
+          title="${esc((sig ? 'Signal : ' : '⚠ Aucun signal choisi : ') + label + ' — glisser pour le déplacer')}"><span class="ry-event-chip">📡 ${esc(label)}</span></div>`;
+    }
     const strip = c.lane < 0 && !c.all;
-    const top = c.all ? RY_STRIP_H : strip ? 0 : RY_STRIP_H + c.lane * RY_LANE_H;
+    const top = off + (c.all ? RY_STRIP_H : strip ? 0 : RY_STRIP_H + c.lane * RY_LANE_H);
     const h = c.all ? lanesH : strip ? RY_STRIP_H : RY_LANE_H;
     const prefix = c.type === 'action' ? '⚡ ' : c.type === 'instruction' ? '➜ ' : (strip && c.name ? c.name + ' : ' : '');
     return `<div class="ry-cue ry-${c.type} ry-style-${esc(c.node.style || 'normal')}${c.all ? ' ry-all' : ''}${strip ? ' ry-strip' : ''}" data-i="${i}"
@@ -5034,6 +5104,7 @@ function _ryBuildBand() {
 
   // Le texte est étiré sur la durée de la réplique : on lit à la vitesse de la barre.
   band.querySelectorAll('.ry-cue').forEach(el => el.addEventListener('pointerdown', _ryDragStart));
+  band.querySelectorAll('.ry-event').forEach(el => el.addEventListener('pointerdown', _ryEventDragStart));
   band.querySelectorAll('.ry-cue').forEach(el => {
     const span = el.firstElementChild;
     const natural = span.offsetWidth, avail = el.clientWidth - 8;
@@ -5106,24 +5177,61 @@ function _ryDragStart(e) {
   el.addEventListener('pointerup', up);
 }
 
+// Glisser un signal le décale (son délai), comme une réplique ; il n'a ni durée ni bords à étirer.
+function _ryEventDragStart(e) {
+  const el = e.currentTarget;
+  const cue = _ry.timeline?.cues[+el.dataset.i];
+  if (!cue || _ry.playing || e.button !== 0) return;
+  e.preventDefault();
+  el.setPointerCapture(e.pointerId);
+
+  const band = document.getElementById('ry-band');
+  const x0 = e.clientX, left0 = parseFloat(el.style.left), delay0 = cue.node.delay_ms || 0;
+  const tip = document.createElement('div');
+  tip.className = 'ry-drag-tip';
+  band.appendChild(tip);
+  const snap = ms => Math.round(ms / RY_GRID_MS) * RY_GRID_MS;
+  let result = null;
+
+  const move = ev => {
+    const dx = (ev.clientX - x0) / _ry.pps * 1000;
+    const shift = Math.max(snap(delay0 + dx) - delay0, -cue.start); // jamais avant le début de la bande
+    result = delay0 + shift;
+    el.style.left = (left0 + shift / 1000 * _ry.pps) + 'px';
+    el.classList.add('dragging');
+    tip.textContent = `signal à ${((cue.start + shift) / 1000).toFixed(1)} s`;
+    tip.style.left = (el.getBoundingClientRect().left - band.getBoundingClientRect().left + 12) + 'px';
+  };
+  const up = () => {
+    el.removeEventListener('pointermove', move);
+    el.removeEventListener('pointerup', up);
+    tip.remove();
+    if (result !== null && result !== delay0) saveNodeField(_ry.seqId, cue.node.id, 'delay_ms', result);
+    _ryBuildBand();
+    _ryBuildCueTable();
+  };
+  el.addEventListener('pointermove', move);
+  el.addEventListener('pointerup', up);
+}
+
 function _ryBuildCueTable() {
   const box = document.getElementById('ry-cues');
   const tl = _ry.timeline;
   if (!box || !tl) return;
-  const spoken = tl.cues.filter(c => c.type !== 'event');
+  const spoken = tl.cues; // répliques ET signaux
   if (!spoken.length) { box.innerHTML = '<div class="empty-state"><p>Aucune réplique jouable avec ce nombre de joueurs</p></div>' + _rySkippedHtml(tl); return; }
   const seqId = _ry.seqId;
   box.innerHTML = `<table class="data-table"><thead><tr>
       <th>Début</th><th>Personnage</th><th>Type</th><th>Texte</th><th>Placement</th><th>Durée (ms)</th>
     </tr></thead><tbody>${spoken.map(c => `<tr>
       <td style="font-family:monospace;font-size:11px;color:var(--text3)">${(c.start / 1000).toFixed(2)}s</td>
-      <td><span style="color:${esc(c.color)};font-weight:600">${esc(c.name || '—')}</span></td>
-      <td style="font-size:11px;color:var(--text2)">${esc(c.type)}</td>
+      <td><span style="color:${esc(c.color || '#8b8fa8')};font-weight:600">${c.type === 'event' ? '📡' : esc(c.name || '—')}</span></td>
+      <td style="font-size:11px;color:var(--text2)">${esc(_ryTypeLabel(c.type))}</td>
       <td><input class="edit-input" style="width:100%;font-size:12px" value="${esc(c.node.text_fr || '')}"
         onchange="_rySaveNode('${seqId}','${c.node.id}','text_fr',this.value)"></td>
       <td>${_ryNodeFieldsHtml(seqId, c.node, '_rySaveNode')}</td>
-      <td><input type="number" min="0" class="edit-input" style="width:80px;font-size:12px" placeholder="${_ryDuration({ ...c.node, rhythm_duration_ms: 0 })}"
-        value="${c.node.rhythm_duration_ms || ''}" onchange="_rySaveNode('${seqId}','${c.node.id}','rhythm_duration_ms',+this.value)"></td>
+      <td>${c.type === 'event' ? '' : `<input type="number" min="0" class="edit-input" style="width:80px;font-size:12px" placeholder="${_ryDuration({ ...c.node, rhythm_duration_ms: 0 })}"
+        value="${c.node.rhythm_duration_ms || ''}" onchange="_rySaveNode('${seqId}','${c.node.id}','rhythm_duration_ms',+this.value)">`}</td>
     </tr>`).join('')}</tbody></table>` + _rySkippedHtml(tl);
 }
 
@@ -5157,6 +5265,7 @@ function _ryDraw() {
   _ry.timeline.cues.forEach((c, i) => {
     const on = c.type !== 'event' && _ry.t >= c.start && _ry.t <= c.start + c.dur;
     track.querySelector(`.ry-cue[data-i="${i}"]`)?.classList.toggle('on', on);
+    if (c.type === 'event') track.querySelector(`.ry-event[data-i="${i}"]`)?.classList.toggle('fired', _ry.t >= c.start);
     if (on && c.type === 'dialogue' && (c.lane >= 0 || c.all)) rec = true;
   });
   document.getElementById('ry-rec')?.classList.toggle('on', rec);
@@ -5284,6 +5393,80 @@ function deleteSceneAction(sceneId, actionId) {
   markModified();
   _refreshSceneActions(sceneId);
   _refreshSceneChecklists(sceneId);
+}
+
+// Nœuds « signal » (tous films) qui émettent ce signal.
+function _nodesUsingSignal(signalId) {
+  const out = [];
+  for (const film of state.data?.films || [])
+    for (const seq of film.dialogue_sequences || [])
+      for (const node of seq.nodes || [])
+        if (node.type === 'event' && node.signal_id === signalId) out.push({ seq, node });
+  return out;
+}
+
+function _sceneSignalsHtml(scene) {
+  const signals = scene.signals || [];
+  const rows = signals.map(sg => {
+    const uses = _nodesUsingSignal(sg.id);
+    return `<div class="scene-action-row">
+      <input class="edit-input" value="${esc(sg.label)}" placeholder="ex : Ouverture de la porte"
+        onchange="saveSceneSignal('${scene.id}','${sg.id}','label',this.value)">
+      <input class="edit-input" value="${esc(sg.note || '')}" placeholder="Note pour le level design"
+        onchange="saveSceneSignal('${scene.id}','${sg.id}','note',this.value)">
+      <span class="scene-action-uses" title="${esc(uses.map(u => u.seq.label).join(', ') || 'Aucune séquence')}">📡 ${uses.length}</span>
+      <button class="btn-ghost btn-sm" title="Supprimer" onclick="deleteSceneSignal('${scene.id}','${sg.id}')">✕</button>
+    </div>`;
+  }).join('');
+  return `<div class="field-group" id="scene-signals">
+    <div class="field-label" style="display:flex;align-items:center;gap:8px">
+      Signaux de la scène <span class="badge badge-act">${signals.length}</span>
+      <button class="btn-ghost btn-sm" style="margin-left:auto" onclick="addSceneSignal('${scene.id}')">+ Signal</button>
+    </div>
+    ${rows || '<span style="font-size:11px;color:var(--text3)">Aucun signal. Un signal = ce que le dialogue déclenche dans le jeu à un moment précis de la bande (la porte s\'ouvre…). Il se pose sur la bande rythmo et se reçoit dans Unity par un relais de signal.</span>'}
+  </div>`;
+}
+
+function _refreshSceneSignals(sceneId) {
+  const box = document.getElementById('scene-signals');
+  const scene = _findScene(sceneId);
+  if (box && scene && state.selectedSceneId === sceneId) box.outerHTML = _sceneSignalsHtml(scene);
+  // Les listes déroulantes de la vue Rythmo doivent proposer le nouveau signal.
+  if (state.activeTab === 'dialogues' && state.dlgView === 'rythmo' && document.getElementById('ry-cues')) _ryBuildCueTable();
+}
+
+// Crée un signal dans la scène et renvoie son id.
+function addSceneSignal(sceneId, label) {
+  const scene = _findScene(sceneId);
+  if (!scene) return '';
+  if (!scene.signals) scene.signals = [];
+  const id = 'sig_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+  scene.signals.push({ id, label: label || 'Nouveau signal', note: '' });
+  markModified();
+  _refreshSceneSignals(sceneId);
+  return id;
+}
+
+function saveSceneSignal(sceneId, signalId, field, value) {
+  const signal = (_findScene(sceneId)?.signals || []).find(sg => sg.id === signalId);
+  if (!signal) return;
+  signal[field] = value;
+  markModified();
+  if (field === 'label' && state.activeTab === 'dialogues' && state.dlgView === 'rythmo') _ryBuildBand();
+}
+
+function deleteSceneSignal(sceneId, signalId) {
+  const scene = _findScene(sceneId);
+  if (!scene) return;
+  const uses = _nodesUsingSignal(signalId);
+  const msg = uses.length
+    ? `Ce signal est émis par ${uses.length} nœud(s) (${[...new Set(uses.map(u => u.seq.label))].join(', ')}), qui n'émettront plus rien. Supprimer ?`
+    : 'Supprimer ce signal ?';
+  if (!confirm(msg)) return;
+  scene.signals = (scene.signals || []).filter(sg => sg.id !== signalId);
+  uses.forEach(u => { u.node.signal_id = ''; });
+  markModified();
+  _refreshSceneSignals(sceneId);
 }
 
 // ══════════════════════════════════════════════════════════════════
