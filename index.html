@@ -3281,11 +3281,13 @@ function _dlgVersionColor(ver) {
   }
 }
 
-// Types de lien. « best » (si possible) est le lien par défaut : parmi plusieurs liens « si possible » partant d'un même nœud, on
-// prend la branche qui fait parler le plus de personnages présents (égalité : le premier lien). Les autres types sont ceux d'avant :
-// « other » (toujours, en parallèle) et duo / trio / quatuor (seulement à ce nombre de joueurs), gardés comme condition optionnelle.
-const DLG_LINK_KINDS = [['best','si possible'],['other','toujours'],['duo','2 joueurs'],['trio','3 joueurs'],['quatuor','4 joueurs']];
-function _dlgLinkLabel(v) { return (DLG_LINK_KINDS.find(k => k[0] === v) || [v, v])[1]; }
+// Types de lien. « best » (si possible) est le lien par défaut ; l'ancien « other » (toujours) est EXACTEMENT la même chose.
+// Depuis un nœud, on ne suit qu'UN lien, jamais plusieurs en parallèle (des répliques dites en même temps = un nœud à plusieurs
+// personnages) : un lien réservé à ce nombre de joueurs (2 / 3 / 4) passe avant les autres, sinon on prend la branche qui fait parler
+// le plus de personnages présents différents (égalité : le premier lien du nœud).
+const DLG_LINK_KINDS = [['best','si possible'],['duo','2 joueurs'],['trio','3 joueurs'],['quatuor','4 joueurs']];
+function _dlgLinkKind(v) { return (!v || v === 'all' || v === 'other') ? 'best' : v; }
+function _dlgLinkLabel(v) { return (DLG_LINK_KINDS.find(k => k[0] === _dlgLinkKind(v)) || [v, v])[1]; }
 
 // Personnages d'un nœud : plusieurs = la réplique est dite EN MÊME TEMPS (chacun sur sa ligne ; les absents sautent).
 // speaker_id reste le premier (anciennes données, export) ; speaker_ids n'existe que s'il y en a plusieurs.
@@ -3900,7 +3902,7 @@ function _dgRenderLinks(linkG, linkData, seqId) {
       return g;
     }
   ).each(function(d) {
-    const ver = (!d.version || d.version === 'all') ? 'other' : d.version;
+    const ver = _dlgLinkKind(d.version);
     d3.select(this).select('.dg-link-line')
       .attr('stroke', _dlgVersionColor(ver));
     d3.select(this).on('click', (ev) => {
@@ -4291,7 +4293,7 @@ function _dgShowEditPanel(nodeId, seqId) {
   const outLinks = (node.links||[]);
   const linksHtml = outLinks.length ? outLinks.map((lk,i) => {
     const tNode = (seq.nodes||[]).find(n=>n.id===lk.target);
-    const kind = (!lk.version || lk.version === 'all') ? 'other' : lk.version;
+    const kind = _dlgLinkKind(lk.version);
     return `<div class="dlg-nep-link-row">
       <span style="width:8px;height:8px;border-radius:50%;background:${_dlgVersionColor(kind)};flex-shrink:0;display:inline-block" title="${esc(_dlgLinkLabel(kind))}"></span>
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(_dlgLinkLabel(kind))} (l'ordre départage deux branches à égalité)">${i + 1}. ${esc(tNode?.text_fr?.slice(0,16)||lk.target)}</span>
@@ -4552,12 +4554,11 @@ function _dgShowLinkVersionPopup(clientX, clientY, linkDatum, seqId) {
   DLG_LINK_KINDS.forEach(([v, label]) => {
     const btn = document.createElement('button');
     btn.className = 'btn-ghost btn-sm';
-    const cur = (!linkDatum.version || linkDatum.version === 'all') ? 'other' : linkDatum.version;
+    const cur = _dlgLinkKind(linkDatum.version);
     btn.style.cssText = `color:${_dlgVersionColor(v)};border-color:${v===cur?_dlgVersionColor(v):'var(--border)'};${v===cur?'background:'+_dlgVersionColor(v)+'22':''}`;
     btn.textContent = label;
-    btn.title = v === 'best' ? 'Si possible : parmi les liens « si possible » du nœud, on prend la branche qui fait parler le plus de personnages présents'
-              : v === 'other' ? 'Toujours : suivi en parallèle des autres liens'
-              : `Seulement à ${label}`;
+    btn.title = v === 'best' ? 'Si possible : parmi les liens du nœud, on prend la branche qui fait parler le plus de personnages présents différents (égalité : le premier lien)'
+              : `Réservé à ${label} : passe avant les autres liens quand il y a ce nombre de joueurs`;
     btn.onclick = () => {
       const seq = _seqById(seqId);
       const sid = typeof linkDatum.source === 'object' ? linkDatum.source.id : linkDatum.source;
@@ -4889,7 +4890,7 @@ let _ry = { seqId: null, players: 4, pps: 450, rate: 1, t: -RY_LEAD_MS, playing:
 function _ryActors() {
   const realite = (state.data?.films || []).find(f => f.id === 'realite');
   const names = (realite?.characters || []).filter(c => c.role !== 'npc').map(c => c.name);
-  return names.length ? names : ['Lily','Marco','Mina','Anim'];
+  return names.length ? names : ['Lily','Marco','Anim','Mina'];
 }
 
 function _ryIsSpoken(type) { return !type || type === 'dialogue' || type === 'canon' || type === 'instruction' || type === 'action'; }
@@ -4902,19 +4903,20 @@ function _ryDuration(node) {
   return Math.max(min, letters * 70);
 }
 
-// Personnages d'un nœud (joueurs / PNJ) et combien de joueurs présents le disent.
+// Personnages d'un nœud (joueurs / PNJ) et comédiens présents qui le disent.
 function _ryPlayersOf(node) { return _nodeSpeakers(node).filter(c => c.role !== 'npc'); }
 function _ryNpcsOf(node) { return _nodeSpeakers(node).filter(c => c.role === 'npc'); }
-function _ryPresentCount(node, actors) { return _ryPlayersOf(node).filter(c => actors.includes(c.actor_name || c.name)).length; }
+function _ryPresentActors(node, actors) { return _ryPlayersOf(node).map(c => c.actor_name || c.name).filter(a => actors.includes(a)); }
+function _ryPresentCount(node, actors) { return _ryPresentActors(node, actors).length; }
 
-// Ordre de lecture. Graphe : on part de l'entrée (ou des nœuds sans lien entrant) et on suit les liens valides pour ce nombre de joueurs,
-// niveau par niveau, de haut en bas :
-//  - liens « toujours » / duo / trio / quatuor : comme avant (ceux de la version exacte s'il y en a, sinon les communs, tous suivis) ;
-//  - liens « si possible » (best) : on n'en suit QU'UN, la branche qui fait parler le plus de personnages présents. On ne compte que
-//    les nœuds propres à la branche (ceux que les autres branches n'atteignent pas : après le point de rencontre, tout est commun).
-//    Égalité : le premier lien du nœud. Un seul lien « si possible » est toujours suivi.
+// Ordre de lecture. Graphe : on part de l'entrée (ou des nœuds sans lien entrant) et, à chaque nœud, on suit UN SEUL lien (jamais
+// plusieurs en parallèle : des répliques dites en même temps = un nœud à plusieurs personnages), niveau par niveau, de haut en bas :
+//  - un lien réservé à ce nombre de joueurs (duo / trio / quatuor) passe avant les autres ;
+//  - sinon, parmi les liens « si possible » (best, et les anciens « other », équivalents), la branche qui fait parler le plus de
+//    comédiens présents DIFFÉRENTS. On ne compte que les nœuds propres à la branche (ceux que les autres branches n'atteignent pas :
+//    après le point de rencontre tout est commun). Égalité : le premier lien du nœud. Un seul lien possible : il est suivi.
 // Sans aucun lien : ordre de la liste. Renvoie aussi les liens suivis (« taken », clés « source>cible ») et les nœuds atteints,
-// pour l'aperçu coloré du graphe.
+// pour l'aperçu coloré du graphe. Même règle côté Unity (RythmoTimeline.Walk) : à modifier des deux côtés.
 function _ryWalkFull(seq, playerCount, actors) {
   const nodes = seq.nodes || [];
   const ver = { 2: 'duo', 3: 'trio', 4: 'quatuor' }[playerCount];
@@ -4928,8 +4930,7 @@ function _ryWalkFull(seq, playerCount, actors) {
 
   const byId = new Map(nodes.map(n => [n.id, n]));
   // Un lien créé depuis un nœud à plusieurs versions porte « duo→trio » : on teste chaque partie.
-  const parts = l => String(l.version || 'other').split('→');
-  const isBest = l => l.version === 'best';
+  const parts = l => String(l.version || 'best').split('→');
   const reachFrom = id => {
     const seen = new Set(), stack = [id];
     while (stack.length) {
@@ -4943,24 +4944,22 @@ function _ryWalkFull(seq, playerCount, actors) {
   const cache = new Map();
   const followed = n => {
     if (cache.has(n.id)) return cache.get(n.id);
-    const links = (n.links || []).filter(l => byId.has(l.target));
-    const plain = links.filter(l => !isBest(l));
-    const exact = plain.filter(l => parts(l).includes(ver));
-    const out = exact.length ? exact : plain.filter(l => parts(l).some(isCommon));
-    const best = links.filter(isBest);
-    if (best.length === 1) out.push(best[0]);
-    else if (best.length > 1) {
-      const reach = best.map(l => reachFrom(l.target));
-      let top = -1, pick = best[0];
-      best.forEach((l, i) => {
-        let score = 0;
+    const valid = (n.links || []).filter(l => byId.has(l.target));
+    const exact = valid.filter(l => parts(l).includes(ver));
+    const candidates = exact.length ? exact : valid.filter(l => parts(l).some(v => isCommon(v) || v === 'best'));
+    let out = candidates;
+    if (candidates.length > 1) {
+      const reach = candidates.map(l => reachFrom(l.target));
+      let top = -1, pick = candidates[0];
+      candidates.forEach((l, i) => {
+        const involved = new Set();
         reach[i].forEach(id => {
           if (reach.some((r, j) => j !== i && r.has(id))) return; // nœud commun à une autre branche : ne départage pas
-          score += _ryPresentCount(byId.get(id), actors);
+          _ryPresentActors(byId.get(id), actors).forEach(a => involved.add(a));
         });
-        if (score > top) { top = score; pick = l; }
+        if (involved.size > top) { top = involved.size; pick = l; }
       });
-      out.push(pick);
+      out = [pick];
     }
     cache.set(n.id, out);
     return out;
