@@ -3609,7 +3609,9 @@ function renderDlgNodeGraph(seqId) {
     </div>
   </div>`;
 
-  _gs = { seqId, sim: null, tick: null, selectedNodeId: null, transform: null, nodes: [], linkData: [], pendingLink: { active: false, sourceId: null, isInput: false, sx: 0, sy: 0, pendingSource: null, pendingIsInput: false } };
+  // Créer / supprimer un nœud redessine le graphe : la vue (zoom + position) reste où elle était, sauf si on change de séquence.
+  const keptView = _gs.seqId === seqId ? _gs.transform : null;
+  _gs = { seqId, sim: null, tick: null, selectedNodeId: null, transform: keptView, nodes: [], linkData: [], pendingLink: { active: false, sourceId: null, isInput: false, sx: 0, sy: 0, pendingSource: null, pendingIsInput: false } };
 
   _dgBuild(seqId);
 }
@@ -4019,6 +4021,13 @@ function _dgNodeEffectiveVersion(nodeId) {
   return vers.length === 1 ? vers[0] : vers.join('→');
 }
 
+// En-tête d'un nœud signal : sa fonction, c'est-à-dire le signal qu'il émet (ou un avertissement s'il n'en a pas).
+function _dgSignalTitle(nd, seqId) {
+  const sig = _findSignal(_seqById(seqId)?.scene_id, nd.signal_id);
+  const label = sig ? sig.label : '⚠ choisir un signal';
+  return '📡 ' + (label.length > 19 ? label.slice(0, 18) + '…' : label);
+}
+
 function _dgApplyNodeStyle(g, d, seqId) {
   const NW = 160, CR = 38;
   const nd = d._data;
@@ -4026,6 +4035,7 @@ function _dgApplyNodeStyle(g, d, seqId) {
   const isEntry = nd.type === 'entry', isExit = nd.type === 'exit';
   const isSelected = d.id === _gs.selectedNodeId;
   const char = _charById(nd.speaker_id);
+  const isSignal = nd.type === 'event';
   const effVer = _dgNodeEffectiveVersion(d.id);
   const vColor = effVer.includes('→') ? 'var(--text3)' : _dlgVersionColor(effVer);
 
@@ -4086,17 +4096,17 @@ function _dgApplyNodeStyle(g, d, seqId) {
 
     g.select('.dg-node-bg')
       .attr('height', nh).attr('y', -nh/2)
-      .attr('fill', char?.color ? char.color+'18' : 'var(--bg2)')
+      .attr('fill', isSignal ? '#2fb5c918' : char?.color ? char.color+'18' : 'var(--bg2)')
       .attr('stroke', isSelected ? 'var(--accent)' : 'var(--border)')
       .attr('stroke-width', isSelected ? 3 : 1.5);
 
     g.select('.dg-speaker-bar')
       .attr('height', nh-10).attr('y', -nh/2+5)
-      .attr('fill', char?.color || '#666');
+      .attr('fill', isSignal ? '#2fb5c9' : char?.color || '#666');
 
     g.select('.dg-speaker-name')
       .attr('y', -nh/2+20)
-      .text(char?.name || nd.speaker_id || '');
+      .text(isSignal ? _dgSignalTitle(nd, seqId) : char?.name || nd.speaker_id || '');
 
     g.select('.dg-node-fo').attr('y', -nh/2+36).attr('height', nh-47);
 
